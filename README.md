@@ -4,6 +4,7 @@
 
 Tracky ist ein persönlicher Vermögens-Tracker im Browser: **https://flotsch3400.github.io/Privates-M/**
 
+- **Aktien & ETFs, Krypto:** eigene Übersicht je Anlageklasse mit Entwicklung, Aufteilung nach Konto und Live-Positionen
 - **Übersicht:** Nettovermögen, Allzeithoch, KPI-Karten, Entwicklung, Aufteilung als Donut, Zeitraumvergleich, Vermögensstruktur, Anbieter
 - **Neue Bewertung:** zu jedem Stichtag alle Konten erfassen, vorausgefüllt mit dem letzten Stand
 - **Depot & Kurse:** Aktien, ETFs, Fonds (Yahoo Finance), Krypto (CoinGecko, DexScreener), Edelmetalle und Wallets (Bitcoin, Ethereum, Solana, Algorand) mit Live-Kursen; Bestandslisten per Einfügen übernehmen

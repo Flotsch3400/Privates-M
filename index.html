@@ -73,6 +73,8 @@ a.link{color:var(--brand-ink);text-decoration:none;font-weight:500} a.link:hover
 .brand{display:flex;align-items:center;gap:10px;padding:2px 8px 22px;color:var(--ink);text-decoration:none}
 .brand svg{display:block}
 .nav{display:grid;gap:2px}
+.nav-group{font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding:14px 11px 6px}
+.nav-group:first-child{padding-top:0}
 .nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;text-decoration:none;color:var(--ink-2);font-weight:500;transition:background .12s,color .12s}
 .nav a:hover{background:var(--surface-2);color:var(--ink)}
 .nav a[aria-current="page"]{background:var(--nav-active);color:var(--nav-active-ink)}
@@ -167,7 +169,7 @@ textarea.input{height:auto;min-height:150px;padding:10px 12px;resize:vertical;fo
 .legend button[aria-pressed="false"]{opacity:.4}
 .donut-wrap{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;justify-items:center}
 .donut-wrap > div:last-child{width:100%}
-#ch-main{height:440px}
+#ch-main,.cv-chart{height:440px}
 .donut{position:relative;width:180px;height:180px}
 .donut svg{width:100%;height:100%;display:block;transform:rotate(-90deg)}
 .donut path{transition:opacity .15s}
@@ -323,7 +325,7 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
   .kpi{padding:14px}
   .kpi .v{font-size:18px}
   .chart{height:240px}
-  #ch-main{height:250px}
+  #ch-main,.cv-chart{height:250px}
   .val-head{grid-template-columns:minmax(0,1fr)}
   .vrow{grid-template-columns:minmax(0,1fr) minmax(130px,1fr);padding:10px 14px}
   .vrow .prev,.vrow .delta,.vrow-h{display:none}
@@ -451,14 +453,18 @@ const I = {
   creditCard: svg('<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>'),
   trophy: svg('<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>'),
 };
+I.menu = svg('<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>');
+// [route, label, icon, short label, group, shown in the phone tab bar]
 const NAV = [
-  ["uebersicht", "Übersicht", I.house, "Übersicht"],
-  ["bewertung", "Neue Bewertung", I.plusCircle, "Bewerten"],
-  ["depot", "Depot & Kurse", I.chartCombined, "Depot"],
-  ["verlauf", "Verlauf", I.history, "Verlauf"],
-  ["konten", "Konten", I.wallet, "Konten"],
-  ["planung", "Ziele & Planung", I.target, "Ziele"],
-  ["daten", "Daten & Einstellungen", I.database, "Daten"],
+  ["uebersicht", "Übersicht", I.house, "Übersicht", "Vermögen", true],
+  ["aktien", "Aktien & ETFs", I.trendingUp, "Aktien", "Vermögen", true],
+  ["krypto", "Krypto", I.bitcoin, "Krypto", "Vermögen", true],
+  ["planung", "Ziele & Planung", I.target, "Ziele", "Vermögen", false],
+  ["bewertung", "Neue Bewertung", I.plusCircle, "Bewerten", "Verwalten", true],
+  ["depot", "Depot & Kurse", I.chartCombined, "Depot", "Verwalten", false],
+  ["verlauf", "Verlauf", I.history, "Verlauf", "Verwalten", false],
+  ["konten", "Konten", I.wallet, "Konten", "Verwalten", false],
+  ["daten", "Daten & Einstellungen", I.database, "Daten", "Verwalten", false],
 ];
 
 /* ================= Data layer ================= */
@@ -889,8 +895,17 @@ async function celebrate(title, sub, big) {
 /* ================= Router ================= */
 let route = "uebersicht", editId = null, resizeFns = [];
 function renderNav() {
-  $("#nav").innerHTML = NAV.map(([k, label, icon]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("");
-  $("#tabbar").innerHTML = NAV.map(([k, , icon, short]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${short}</span></a>`).join("");
+  let grp = "";
+  $("#nav").innerHTML = NAV.map(([k, label, icon, , g]) => (g !== grp ? `<div class="nav-group">${grp = g}</div>` : "") + `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("");
+  const inBar = NAV.filter(n => n[5]);
+  $("#tabbar").innerHTML = inBar.map(([k, , icon, short]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${short}</span></a>`).join("") +
+    `<a href="#" id="tab-more" ${inBar.some(n => n[0] === route) ? "" : 'aria-current="page"'}>${I.menu}<span>Mehr</span></a>`;
+  $("#tab-more").onclick = e => {
+    e.preventDefault();
+    openDlg(`<div class="dlg-h"><h2>Menü</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+      <div class="dlg-b nav" style="gap:2px">${NAV.map(([k, label, icon]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("")}</div>`);
+    $$(".dlg-b a", dlg).forEach(a => a.onclick = () => dlg.close());
+  };
 }
 const VIEWS = {};
 function go() {
@@ -1332,6 +1347,136 @@ VIEWS.depot = v => {
   render(); onQuotes = render;
 };
 
+/* ================= Views: Aktien & ETFs, Krypto ================= */
+/* Slice colours for accounts inside one category, in the validated neighbour order. */
+const SLICE = ["var(--cat-wertpapiere)", "var(--cat-liquiditaet)", "var(--cat-edelmetalle)", "var(--cat-guthaben)", "var(--cat-krypto)", "var(--cat-sachwerte)", "var(--cat-bargeld)"];
+function donutSVG(slices, totalV, centerLabel) {
+  const R = 70, SW = 20, C = 2 * Math.PI * R, GAP = slices.length > 1 ? 3 : 0;
+  let off = 0;
+  return `<svg viewBox="0 0 180 180" role="img" aria-label="${esc(centerLabel)}"><circle cx="90" cy="90" r="${R}" fill="none" stroke="var(--surface-2)" stroke-width="${SW}"/>${slices.map(x => {
+    const len = x.v / totalV * C;
+    const seg = `<circle data-k="${esc(x.k)}" cx="90" cy="90" r="${R}" fill="none" stroke="${x.color}" stroke-width="${SW}" stroke-dasharray="${Math.max(0.01, len - GAP)} ${C}" stroke-dashoffset="${-off}" style="transition:opacity .15s;cursor:pointer"><title>${esc(x.label)}: ${eur0(x.v)} (${fmtPs.format(x.v / totalV)})</title></circle>`;
+    off += len; return seg; }).join("")}</svg><div class="center"><b class="num" data-cv>${eur0(totalV)}</b><span data-cl>${esc(centerLabel)}</span></div>`;
+}
+function catView(v, key) {
+  const S = DB.snapshots, label = catLabel(key), color = catColor(key);
+  const intro = key === "krypto" ? "Alle Coins, Wallets und Krypto-Börsen auf einen Blick." : "Alle Depots, Aktien, ETFs und Fonds auf einen Blick.";
+  if (!S.length) { v.innerHTML = `<div class="head"><div><h1>${esc(label)}</h1><p>${intro}</p></div></div><div class="card empty">Noch keine Bewertung vorhanden. <a class="link" href="#bewertung">Erste Bewertung erfassen</a></div>`; return; }
+  const L = latest(), P = S.at(-2), net = total(L);
+  const at = s => s ? catTotals(s)[key] || 0 : null;
+  const series = S.map(at), val = at(L), pv = at(P);
+  const ytd = [...S].reverse().find(s => s.date < L.date.slice(0, 4) + "-01-01"), y1 = snapAtOrBefore(addMonths(L.date, -12));
+  const peak = Math.max(...series), target = DB.plan?.targets?.[key];
+  const accs = DB.accounts.filter(a => a.cat === key && (!a.archived || L.values[a.id]));
+  const holdType = key === "krypto" ? "crypto" : "stock";
+
+  v.innerHTML = `
+    <section class="hero">
+      <div>
+        <div class="eyebrow inl" style="gap:8px">${catChip(key, "sm")}${esc(label)} · Stichtag ${fmtDateL(L.date)}</div>
+        <div class="hero-total num">${esc(eur(val).split(",")[0])}<span class="cents">,${esc(eur(val).split(",")[1] || "00")}</span></div>
+        <div class="hero-meta">
+          ${P ? `<span class="chip ${cls(val - pv)}">${sEur(val - pv)}${pv ? " · " + pct(val / pv - 1) : ""}</span><span>seit ${fmtDate(P.date)}</span>` : ""}
+          <span class="chip ${val >= peak - .005 ? "pos" : ""}">${val >= peak - .005 ? I.trophy + " Höchststand" : `${pct(val / peak - 1)} unter dem Höchststand`}</span>
+          <span id="cv-live"></span>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn icon" type="button" id="cv-q" data-refresh aria-label="Kurse aktualisieren" title="Kurse aktualisieren">${I.refresh}</button>
+        <button class="btn primary" type="button" id="cv-add">${I.plus} Position hinzufügen</button>
+      </div>
+    </section>
+    <section class="kpis">
+      ${kpi("Seit letztem Stichtag", P ? sEur0(val - pv) : "–", P && pv ? `<span class="${cls(val - pv)}">${pct(val / pv - 1)}</span> <span class="muted">ggü. ${fmtDate(P.date)}</span>` : "", I.trendingUp)}
+      ${kpi("Seit Jahresbeginn", ytd ? sEur0(val - at(ytd)) : "–", ytd && at(ytd) ? `<span class="${cls(val - at(ytd))}">${pct(val / at(ytd) - 1)}</span> <span class="muted">ggü. ${fmtDate(ytd.date)}</span>` : '<span class="muted">kein Vorjahreswert</span>', I.calendar)}
+      ${kpi("12 Monate", y1 ? sEur0(val - at(y1)) : "–", y1 && at(y1) ? `<span class="${cls(val - at(y1))}">${pct(val / at(y1) - 1)}</span> <span class="muted">ggü. ${fmtDate(y1.date)}</span>` : '<span class="muted">noch kein Jahr erfasst</span>', I.chartColumn)}
+      ${kpi("Anteil am Vermögen", fmtPs.format(net ? val / net : 0), target != null ? `<span class="muted">Ziel ${fmtPs.format(target)} · <a class="link" href="#planung">Planung</a></span>` : `<span class="muted">von ${eur0(net)} Nettovermögen</span>`, I.layers)}
+    </section>
+    <section class="grid-2">
+      <div class="card">
+        <div class="card-h"><h2>Entwicklung</h2><div class="seg" id="cv-range"><button type="button" data-v="12">1 J</button><button type="button" data-v="36">3 J</button><button type="button" data-v="all">Alle</button></div></div>
+        <div class="card-b"><div id="cv-chart" class="chart cv-chart"></div></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>Nach Konto</h2><span class="muted" style="font-size:12.5px">Δ seit ${P ? fmtDate(P.date) : "–"}</span></div>
+        <div class="card-b"><div class="donut-wrap"><div class="donut" id="cv-donut"></div><div id="cv-legend"></div></div></div>
+      </div>
+    </section>
+    <section class="card" id="cv-pos-card"></section>
+    <section class="card"><div class="card-h"><h2>Konten</h2><a class="btn ghost sm" href="#konten">Alle Konten</a></div><div class="tbl-wrap" style="margin-top:8px"><table id="cv-accs"></table></div></section>`;
+
+  // chart
+  let range = store.get("cv-range", "all");
+  const draw = () => {
+    $$("#cv-range button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === range));
+    let sub = S;
+    if (range !== "all") { const iso = addMonths(L.date, -+range); sub = S.filter(s => s.date >= iso); if (sub.length < 2) sub = S.slice(-2); }
+    lineChart($("#cv-chart"), {dates: sub.map(s => s.date), series: [{label, color, values: sub.map(at)}], area: true});
+  };
+  $$("#cv-range button").forEach(b => b.onclick = () => { range = b.dataset.v; store.set("cv-range", range); draw(); });
+  draw(); resizeFns.push(draw);
+
+  // donut by account (top 6 + rest)
+  const ranked = accs.map(a => ({a, v: L.values[a.id] || 0, p: P?.values[a.id] || 0})).filter(x => x.v > 0).sort((x, y) => y.v - x.v);
+  const pos = ranked.reduce((t, x) => t + x.v, 0);
+  const top = ranked.slice(0, 6), rest = ranked.slice(6);
+  const slices = top.map((x, i) => ({k: x.a.id, label: x.a.name, v: x.v, color: SLICE[i]}));
+  if (rest.length) slices.push({k: "_rest", label: `${rest.length} weitere`, v: rest.reduce((t, x) => t + x.v, 0), color: "var(--ink-3)"});
+  $("#cv-donut").innerHTML = pos ? donutSVG(slices, pos, label) : '<p class="muted">Keine Werte.</p>';
+  $("#cv-legend").innerHTML = slices.map(x => { const r = ranked.find(y => y.a.id === x.k); const d = r ? r.v - r.p : rest.reduce((t, y) => t + y.v - y.p, 0);
+    return `<div class="alloc-row" data-cat="${esc(x.k)}"><span class="sw" style="background:${x.color};width:10px;height:10px"></span><span class="nm">${esc(x.label)}</span><span class="val num">${eur0(x.v)}</span>
+      <span class="meta"><span class="num">${fmtPs.format(x.v / pos)}</span><span class="num ${cls(d)}">${sEur0(d)}</span></span></div>`; }).join("");
+  const focus = k => {
+    $$("#cv-donut circle[data-k]").forEach(el => el.style.opacity = !k || el.dataset.k === k ? 1 : .25);
+    $$("#cv-legend .alloc-row").forEach(el => el.classList.toggle("dim", !!k && el.dataset.cat !== k));
+    const x = slices.find(y => y.k === k);
+    $("#cv-donut [data-cv]").textContent = eur0(x ? x.v : pos); $("#cv-donut [data-cl]").textContent = x ? `${x.label} · ${fmtPs.format(x.v / pos)}` : label;
+  };
+  $$("#cv-donut circle[data-k]").forEach(el => { el.onmouseenter = () => focus(el.dataset.k); el.onmouseleave = () => focus(null); });
+  $$("#cv-legend .alloc-row").forEach(el => { el.onmouseenter = () => focus(el.dataset.cat); el.onmouseleave = () => focus(null); });
+
+  // accounts table
+  const recent = S.slice(-12);
+  $("#cv-accs").innerHTML = `<thead><tr><th>Konto</th><th class="n">Stichtag</th><th class="n">Δ</th><th class="n">Anteil</th><th class="n">Live</th><th>Verlauf</th></tr></thead><tbody>` +
+    accs.slice().sort((x, y) => (L.values[y.id] || 0) - (L.values[x.id] || 0)).map(a => {
+      const cur = L.values[a.id] || 0, prev = P?.values[a.id] || 0, l = accLive(a);
+      return `<tr class="click" data-acc="${a.id}"><td><span class="with-logo">${accLogo(a)}<span>${esc(a.name)}${a.archived ? ' <span class="chip">archiviert</span>' : ""}</span></span></td>
+        <td class="n">${eur(cur)}</td><td class="n ${cls(cur - prev)}">${sEur0(cur - prev)}</td><td class="n">${val > 0 && cur > 0 ? fmtPs.format(cur / val) : "–"}</td>
+        <td class="n">${l ? `<span class="${l.fresh ? "pos" : "muted"}">${eur0(l.value)}</span>` : isLive(a) ? "–" : '<span class="muted">manuell</span>'}</td>
+        <td>${sparkline(recent.map(s => s.values[a.id] ?? null), color, 90, 22)}</td></tr>`;
+    }).join("") + `<tr class="total"><td>Summe</td><td class="n">${eur(val)}</td><td class="n ${cls(val - (pv || 0))}">${sEur0(val - (pv || 0))}</td><td class="n">100 %</td><td></td><td></td></tr></tbody>`;
+  $$("#cv-accs tr[data-acc]").forEach(r => r.onclick = () => accountDialog(accById(r.dataset.acc), () => go()));
+
+  // live positions in this category
+  const drawLive = () => {
+    const rows = DB.accounts.filter(a => a.cat === key && !a.archived).flatMap(a => a.holdings.map(h => ({a, h, ...hVal(h)})));
+    const lv = rows.reduce((t, r) => t + (r.value || 0), 0);
+    const day = rows.reduce((t, r) => t + (r.value != null && r.change != null ? r.value - r.value / (1 + r.change) : 0), 0);
+    const sug = key === "krypto" ? suggestions().length : 0;
+    $("#cv-pos-card").innerHTML = `<div class="card-h"><h2>Positionen mit Live-Kurs</h2><span class="muted" style="font-size:12.5px">${rows.length ? `${eur0(lv)} · heute <span class="${cls(day)}">${sEur0(day)}</span>` : ""}</span></div>` +
+      (rows.length ? `<div style="margin-top:10px"><div class="h-row h"><span>Position</span><span class="hide-sm">Stück</span><span class="hide-sm">Kurs</span><span class="hide-sm">Heute</span><span>Wert</span></div>` +
+        rows.sort((x, y) => (y.value || 0) - (x.value || 0)).map(r => `<div class="h-row" data-h="${r.h.id}" data-a="${r.a.id}" role="button" tabindex="0">
+          <span class="nm with-logo">${holdingLogo(r.h, "lg")}<span><b>${esc(r.h.name || r.h.symbol)}</b><small>${esc(r.a.name)}${r.h.symbol && r.h.type !== "wallet" ? " · " + esc(isAddr(r.h.symbol) ? r.h.symbol.slice(0, 6) + "…" : r.h.symbol) : ""}</small></span></span>
+          <span class="hide-sm num">${fmtQ.format(r.qty)}</span><span class="hide-sm num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</span>
+          <span class="hide-sm num ${cls(r.change || 0)}">${r.change != null ? pct(r.change) : '<span class="muted">–</span>'}</span><span class="num">${r.value != null ? eur(r.value) : "–"}</span></div>`).join("") + "</div>"
+        : `<div class="card-b"><p class="sub" style="margin:0">${key === "krypto" ? "Noch keine Coins mit Live-Kurs." : "Noch keine Aktien oder ETFs mit Live-Kurs. Füge deine Depot-Positionen hinzu oder kopiere die Bestandsliste aus dem Onlinebanking."}</p></div>`) +
+      (sug ? `<div class="card-b" style="padding-top:12px"><div class="msg info msg-row"><span>${sug} ${sug > 1 ? "Krypto-Konten können" : "Krypto-Konto kann"} live bewertet werden.</span><a class="btn sm" href="#depot">${I.refresh} Live bewerten</a></div></div>` : "") +
+      (key === "wertpapiere" ? `<div class="card-b" style="padding-top:12px"><button class="btn sm" type="button" id="cv-imp">${I.paste} Depot einfügen</button></div>` : "");
+    $$("#cv-pos-card .h-row[data-h]").forEach(r => { const f = () => { const a = accById(r.dataset.a); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.h), drawLive); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+    $("#cv-imp")?.addEventListener("click", () => importDepotDialog(drawLive));
+    const est = liveEstimate(), el = $("#cv-live");
+    if (el) {
+      if (est) { const lvCat = DB.accounts.filter(a => a.cat === key).reduce((t, a) => t + (est.values[a.id] || 0), 0); el.innerHTML = Math.abs(lvCat - val) > .5 ? `<span class="chip live ${cls(lvCat - val)}">Heute live ${eur0(lvCat)} (${sEur0(lvCat - val)})</span>` : ""; }
+      else el.innerHTML = "";
+    }
+  };
+  drawLive(); onQuotes = drawLive;
+  $("#cv-q").onclick = () => refreshQuotes(false);
+  $("#cv-add").onclick = () => holdingDialog(null, null, drawLive, {type: holdType});
+}
+VIEWS.aktien = v => catView(v, "wertpapiere");
+VIEWS.krypto = v => catView(v, "krypto");
+
 /* ================= View: Verlauf ================= */
 VIEWS.verlauf = v => {
   const S = [...DB.snapshots].reverse();
@@ -1551,7 +1696,23 @@ $("#file-in").onchange = async e => {
     const obj = JSON.parse(await f.text());
     if (!obj.accounts || !obj.snapshots) throw 0;
     const doIt = () => { DB = obj; migrate(); store.set("last-backup", new Date().toISOString()); save(true); toast("Daten importiert"); location.hash = "#uebersicht"; go(); refreshQuotes(true); };
-    DB.snapshots.length ? confirmDialog("Daten importieren?", `${obj.accounts.length} Konten und ${obj.snapshots.length} Bewertungen ersetzen die aktuellen Daten.`, "Importieren", doIt, false) : doIt();
+    if (!DB.snapshots.length) return doIt();
+    openDlg(`<div class="dlg-h"><h2>Datei importieren</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+      <div class="dlg-b"><p class="sub" style="margin:0">Die Datei enthält ${obj.accounts.length} Konten und ${obj.snapshots.length} Bewertungen. Wie soll sie übernommen werden?</p>
+        <div class="msg info"><b>Nur Logos und Zuordnungen</b> übernimmt Webseiten, Coin-Zuordnungen und Kategorien der Konten. Deine Bewertungen, Positionen und Ziele bleiben unverändert.</div></div>
+      <div class="dlg-f"><button class="btn danger" type="button" data-all>Alles ersetzen</button><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="button" data-meta>Nur Logos und Zuordnungen</button></div></div>`);
+    $("[data-all]", dlg).onclick = () => { dlg.close(); doIt(); };
+    $("[data-meta]", dlg).onclick = () => {
+      let n = 0;
+      obj.accounts.forEach(src => {
+        const a = accById(src.id); if (!a) return;
+        let ch = false;
+        ["domain", "cat", "provider"].forEach(f => { if (src[f] != null && a[f] !== src[f]) { a[f] = src[f]; ch = true; } });
+        if (JSON.stringify(a.coin || null) !== JSON.stringify(src.coin || null)) { if (src.coin) a.coin = src.coin; else delete a.coin; delete a.coinLogo; ch = true; }
+        if (ch) n++;
+      });
+      save(true); dlg.close(); toast(`${n} Konto${n === 1 ? "" : "en"} aktualisiert`); go(); refreshQuotes(true);
+    };
   } catch { toast("Die Datei ist kein gültiges Backup"); }
 };
 function download(name, text, type) {
