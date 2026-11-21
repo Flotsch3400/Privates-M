@@ -4,3 +4,9 @@ data.json.tmp
 backups/
 __pycache__/
 .DS_Store
+# Eigene Daten und Excel-Dateien
+meine-daten*.json
+vermoegen-backup*.json
+*.xlsx
+*.xls
+*.csv

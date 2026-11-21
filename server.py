@@ -59,8 +59,11 @@ def fx_to_eur(ccy):
 
 def yahoo_quote(symbol):
     url = "https://query1.finance.yahoo.com/v8/finance/chart/" + urllib.parse.quote(symbol) + "?range=5d&interval=1d"
-    meta = get_json(url)["chart"]["result"][0]["meta"]
+    res = get_json(url)["chart"]["result"][0]
+    meta = res["meta"]
     price = meta.get("regularMarketPrice")
+    closes = [c for c in (res.get("indicators", {}).get("quote", [{}])[0].get("close") or []) if c is not None]
+    prev = closes[-2] if len(closes) >= 2 else meta.get("chartPreviousClose")
     ccy = meta.get("currency") or "EUR"
     f, _ = fx_to_eur(ccy)
     return {
@@ -69,18 +72,20 @@ def yahoo_quote(symbol):
         "price": price,
         "currency": ccy,
         "priceEur": round(price * f, 6),
+        "change": (price / prev - 1) if prev else None,
         "time": meta.get("regularMarketTime"),
         "source": "Yahoo Finance",
     }
 
 
 def crypto_quotes(ids):
-    url = "https://api.coingecko.com/api/v3/simple/price?ids=" + urllib.parse.quote(",".join(ids)) + "&vs_currencies=eur&include_last_updated_at=true"
+    url = "https://api.coingecko.com/api/v3/simple/price?ids=" + urllib.parse.quote(",".join(ids)) + "&vs_currencies=eur&include_last_updated_at=true&include_24hr_change=true"
     data = get_json(url)
     out = {}
     for cid in ids:
         if cid in data and "eur" in data[cid]:
             out[cid] = {"symbol": cid, "priceEur": data[cid]["eur"], "currency": "EUR",
+                        "change": (data[cid].get("eur_24h_change") or 0) / 100,
                         "time": data[cid].get("last_updated_at"), "source": "CoinGecko"}
     return out
 

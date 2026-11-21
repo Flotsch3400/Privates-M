@@ -1,21 +1,16 @@
 # Vermögen
 
-Persönlicher Vermögens-Tracker: Konten erfassen, zu beliebigen Stichtagen bewerten,
-Verlauf und Aufteilung sehen. Wertpapiere und Kryptowährungen werden mit Stückzahl
-erfasst und automatisch mit aktuellen Kursen bewertet (Yahoo Finance, CoinGecko).
+Persönlicher Vermögens-Tracker im Browser: **https://flotsch3400.github.io/Privates-M/**
 
-## Im Browser öffnen
-Über GitHub Pages: **https://flotsch3400.github.io/Privates-M/**
+- **Übersicht:** Nettovermögen, Allzeithoch, Zeitraumvergleich, Aufteilung nach Kategorie und Anbieter, Vermögensstruktur
+- **Bewertung:** zu jedem Stichtag alle Konten erfassen, vorausgefüllt mit dem letzten Stand
+- **Depot & Live:** Aktien, ETFs, Fonds (Yahoo Finance), Krypto (CoinGecko), Edelmetalle und Wallets (Bitcoin, Ethereum, Solana, Algorand per öffentlicher Adresse) mit Live-Kursen; Bestandslisten aus dem Onlinebanking per Kopieren und Einfügen übernehmen
+- **Ziele & Planung:** Soll-/Ist-Aufteilung, Meilensteine, Prognose, Budget, echte Rendite (XIRR)
 
-Beim ersten Öffnen auf **Daten importieren** klicken und die eigene `data.json`
-(oder ein Backup) auswählen.
-
-## Wo liegen die Daten?
-Nur im Browser auf dem jeweiligen Gerät (localStorage). Nichts davon landet in diesem
-Repository – `data.json` und `backups/` sind per `.gitignore` ausgeschlossen.
-Unter **Daten → Backup herunterladen** regelmäßig sichern.
+## Datenschutz
+Deine Daten liegen nur im Browser des jeweiligen Geräts (localStorage). Dieses Repository enthält nur den
+Programmcode; `.gitignore` schließt Daten-, Backup- und Excel-Dateien aus. Unter **Daten → Backup herunterladen** sichern.
 
 ## Optional: lokal mit eigenem Server
-`python3 server.py` (oder `Start-Windows.bat` / `Start-Mac.command`) startet die App auf
-http://localhost:8765 und speichert die Daten in `data.json` im Ordner, mit täglicher
-Sicherung unter `backups/`.
+`python3 server.py` (oder `Start-Windows.bat` / `Start-Mac.command`) startet die App auf http://localhost:8765
+und speichert die Daten in `data.json` mit täglicher Sicherung unter `backups/`.
