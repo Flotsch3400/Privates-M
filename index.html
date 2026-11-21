@@ -798,7 +798,7 @@ const allHoldings = (incArchived = false) => DB.accounts.filter(a => incArchived
 /** Accounts that could be valued live: they carry a suggested coin or wallet in the data file but no positions yet. */
 const coinItem = a => a.coin?.wallet ? null : a.coin ? {type: "crypto", symbol: a.coin.id, src: a.coin.src || (isAddr(a.coin.id) ? "dex" : "cg")} : null;
 const coinKey = a => { const it = coinItem(a); return it ? hKey(it) : ""; };
-const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && !isLive(a));
+const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && a.cat === "krypto" && !isLive(a));
 async function refreshQuotes(silent) {
   const items = [...allHoldings().map(x => x.h), ...suggestions().map(coinItem).filter(Boolean)];
   if (!items.length) { setLiveStatus(); return; }
