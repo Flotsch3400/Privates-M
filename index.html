@@ -668,8 +668,10 @@ const Sync = {
     return JSON.parse(new TextDecoder().decode(pt));
   },
   async api(path, opts = {}, token) {
-    const r = await fetch("https://api.github.com" + path, {...opts, cache: "no-store", headers: {"Accept": "application/vnd.github+json", "Authorization": "Bearer " + (token || this.state.token), ...(opts.body ? {"Content-Type": "application/json"} : {})}});
-    if (r.status === 401) throw new Error("Der GitHub-Token ist ungültig oder abgelaufen.");
+    let r; try { r = await fetch("https://api.github.com" + path, {...opts, cache: "no-store", headers: {"Accept": "application/vnd.github+json", "Authorization": "Bearer " + (token || this.state.token), ...(opts.body ? {"Content-Type": "application/json"} : {})}}); }
+    catch { throw new Error("Keine Verbindung zu GitHub. Bitte Internetverbindung prüfen."); }
+    if (r.status === 401) throw new Error("Der GitHub-Token ist ungültig, abgelaufen oder wurde gelöscht. Erstelle am Laptop einen neuen Token und einen neuen Verbindungscode.");
+    if (r.status === 403) throw new Error("GitHub verweigert den Zugriff. Hat der Token das Recht „gist“?");
     if (r.status === 404) throw new Error("Der Sync-Speicher wurde nicht gefunden.");
     if (!r.ok) throw new Error("GitHub antwortet nicht (" + r.status + ").");
     return r.json();
@@ -751,7 +753,15 @@ const Sync = {
     $("[data-local]", dlg).onclick = () => { dlg.close(); this.state.lastRemote = updatedAt; this.persist(); this.push(true); toast("Dieser Stand wird hochgeladen"); };
   },
   pairCode() { return "TRACKY1:" + btoa(JSON.stringify({g: this.state.gistId, t: this.state.token})); },
-  parseCode(code) { const m = String(code || "").trim().match(/^TRACKY1:(.+)$/); if (!m) throw new Error("Das ist kein Tracky-Verbindungscode."); const o = JSON.parse(atob(m[1])); if (!o.g || !o.t) throw new Error("Der Verbindungscode ist unvollständig."); return o; },
+  parseCode(code) {
+    const clean = String(code || "").replace(/[\s\u200B-\u200D\uFEFF]+/g, "");
+    const m = clean.match(/TRACKY1[:：]([A-Za-z0-9+/=_-]+)/i);
+    if (!m) throw new Error("Das ist kein Tracky-Verbindungscode. Er beginnt mit TRACKY1:");
+    let b = m[1].replace(/-/g, "+").replace(/_/g, "/"); while (b.length % 4) b += "=";
+    let o; try { o = JSON.parse(atob(b)); } catch { throw new Error("Der Verbindungscode ist beschädigt. Bitte noch einmal vollständig kopieren."); }
+    if (!o.g || !o.t) throw new Error("Der Verbindungscode ist unvollständig.");
+    return o;
+  },
 };
 
 /* ================= Domain ================= */
@@ -2631,11 +2641,25 @@ function drawSyncCard() {
   el.innerHTML = `<div class="card-h"><h2>Sync zwischen Geräten</h2><span class="chip pos">aktiv</span></div>
     <div class="card-b" style="display:grid;gap:12px">
       <p class="sub" style="margin:0" id="sync-state"></p>
-      <div class="actions"><button class="btn" type="button" id="sync-now">${I.refresh} Jetzt synchronisieren</button><button class="btn primary" type="button" id="sync-pair">Weiteres Gerät verbinden</button><button class="btn danger" type="button" id="sync-off">Auf diesem Gerät beenden</button></div>
+      <div class="actions"><button class="btn" type="button" id="sync-now">${I.refresh} Jetzt synchronisieren</button><button class="btn primary" type="button" id="sync-pair">Weiteres Gerät verbinden</button><button class="btn" type="button" id="sync-tok">Token ersetzen</button><button class="btn danger" type="button" id="sync-off">Auf diesem Gerät beenden</button></div>
     </div>`;
   Sync.state.dirty ? Sync.status("", "Änderungen werden synchronisiert …") : Sync.showOk();
   $("#sync-now").onclick = () => { Sync.status("", "Wird synchronisiert …"); Sync.state.dirty ? Sync.push() : Sync.pull(); };
   $("#sync-pair").onclick = syncPairDialog;
+  $("#sync-tok").onclick = () => {
+    openDlg(`<form id="tf"><div class="dlg-h"><h2>Token ersetzen</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+      <div class="dlg-b"><ol class="steps"><li>Bei GitHub unter <a class="link" href="https://github.com/settings/tokens" target="_blank" rel="noopener">Settings → Personal access tokens</a> den alten Token „Tracky Sync“ löschen (Delete).</li>
+        <li><a class="link" href="${TOKEN_URL}" target="_blank" rel="noopener">Neuen Token erstellen</a> (Häkchen bei gist ist gesetzt) und hier einfügen.</li><li>Danach jedes andere Gerät mit dem neuen Verbindungscode neu verbinden.</li></ol>
+        <div class="field"><label for="t-t">Neuer GitHub-Token</label><input class="input mono" id="t-t" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ghp_…" required></div><div id="t-msg"></div></div>
+      <div class="dlg-f"><span></span><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div></form>`);
+    $("#tf", dlg).onsubmit = async e => {
+      e.preventDefault(); const t = $("#t-t", dlg).value.replace(/\s+/g, ""), msg = $("#t-msg", dlg);
+      msg.innerHTML = '<div class="msg info">Wird geprüft …</div>';
+      try { await Sync.readGist(Sync.state.gistId, t); Sync.state.token = t; Sync.persist(); dlg.close(); toast("Neuer Token gespeichert"); drawSyncCard(); setTimeout(syncPairDialog, 300); }
+      catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message)}</div>`; }
+    };
+    $("#t-t", dlg).focus();
+  };
   $("#sync-off").onclick = () => confirmDialog("Sync auf diesem Gerät beenden?", "Deine Daten bleiben auf diesem Gerät und in der verschlüsselten Kopie erhalten. Dieses Gerät synchronisiert nur nicht mehr.", "Beenden", () => { Sync.disconnect(); drawSyncCard(); toast("Sync beendet"); });
 }
 const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Tracky%20Sync";
@@ -2644,7 +2668,7 @@ function syncSetupDialog() {
     <div class="dlg-b">
       <ol class="steps"><li><a class="link" href="${TOKEN_URL}" target="_blank" rel="noopener">Token bei GitHub erstellen</a>. Das Häkchen bei <b>gist</b> ist schon gesetzt. Bei „Expiration“ am besten „No expiration“ wählen, dann unten auf „Generate token“ klicken.</li>
         <li>Den Token (beginnt mit <span class="mono">ghp_</span>) hier einfügen.</li><li>Ein Passwort für die Verschlüsselung festlegen und gut merken. Ohne Passwort kommt niemand an die Daten, auch du nicht.</li></ol>
-      <div class="field"><label for="s-t">GitHub-Token</label><input class="input mono" id="s-t" type="password" autocomplete="off" placeholder="ghp_…" required></div>
+      <div class="field"><label for="s-t">GitHub-Token</label><input class="input mono" id="s-t" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ghp_…" required></div>
       <div class="row2"><div class="field"><label for="s-p">Sync-Passwort</label><input class="input" id="s-p" type="password" autocomplete="new-password" minlength="8" required></div>
         <div class="field"><label for="s-p2">Passwort wiederholen</label><input class="input" id="s-p2" type="password" autocomplete="new-password" required></div></div>
       <div id="s-msg"></div>
@@ -2670,7 +2694,8 @@ async function syncPairDialog() {
         <li>In der App unter <b>Daten &amp; Einstellungen → Mit anderem Gerät verbinden</b> einfügen und dein Sync-Passwort eingeben.</li></ol>
       <div style="display:grid;justify-items:center;gap:10px"><div id="qr" style="background:#fff;padding:12px;border-radius:12px;width:244px;height:244px"></div></div>
       <div class="field"><label for="pc">Verbindungscode</label><div style="display:flex;gap:8px"><input class="input mono" id="pc" readonly value="${esc(code)}"><button class="btn" type="button" id="pc-copy">Kopieren</button></div>
-        <span class="hint">Der Code enthält den Zugang zum Speicher, aber nicht dein Passwort. Teile ihn trotzdem mit niemandem.</span></div>
+        <span class="hint">Der Code enthält den Zugang zum Speicher (GitHub-Token), aber nicht dein Passwort. Teile ihn mit niemandem und poste ihn nirgends.</span></div>
+      <p class="hint" style="margin:0">Für die Eingabe von Hand: Gist-ID <span class="mono">${esc(Sync.state.gistId)}</span> plus dein Token.</p>
     </div>
     <div class="dlg-f"><span></span><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
   $("#pc-copy", dlg).onclick = e => copyText(code, e.currentTarget);
@@ -2683,8 +2708,11 @@ function syncJoinDialog() {
   openDlg(`<form id="jf"><div class="dlg-h"><h2>Mit anderem Gerät verbinden</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <p class="sub" style="margin:0">Den Verbindungscode findest du auf dem anderen Gerät unter <b>Daten &amp; Einstellungen → Weiteres Gerät verbinden</b>.</p>
-      <div class="field"><label for="j-c">Verbindungscode</label><input class="input mono" id="j-c" autocomplete="off" placeholder="TRACKY1:…" required></div>
-      <div class="field"><label for="j-p">Sync-Passwort</label><input class="input" id="j-p" type="password" autocomplete="current-password" required></div>
+      <div class="field"><label for="j-c">Verbindungscode</label><textarea class="input mono" id="j-c" rows="3" style="min-height:84px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="TRACKY1:…"></textarea>
+        <button type="button" class="link-btn" id="j-man" style="justify-self:start">Code klappt nicht? Gist-ID und Token einzeln eingeben</button></div>
+      <div class="row2" id="j-manual" hidden><div class="field"><label for="j-g">Gist-ID</label><input class="input mono" id="j-g" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+        <div class="field"><label for="j-t">GitHub-Token</label><input class="input mono" id="j-t" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="ghp_…"></div></div>
+      <div class="field"><label for="j-p">Sync-Passwort</label><input class="input" id="j-p" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" required></div>
       <div id="j-msg"></div>
     </div>
     <div class="dlg-f"><span></span><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Verbinden</button></div></div></form>`);
@@ -2693,7 +2721,8 @@ function syncJoinDialog() {
     const msg = $("#j-msg", dlg);
     msg.innerHTML = '<div class="msg info">Wird verbunden …</div>';
     try {
-      const o = Sync.parseCode($("#j-c", dlg).value);
+      const manual = !$("#j-manual", dlg).hidden && $("#j-g", dlg).value.trim();
+      const o = manual ? {g: $("#j-g", dlg).value.replace(/\s+/g, "").replace(/^.*gist\.github\.com\/(?:[^/]+\/)?/, ""), t: $("#j-t", dlg).value.replace(/\s+/g, "")} : Sync.parseCode($("#j-c", dlg).value);
       const {data, file} = await Sync.connect(o.t, o.g, $("#j-p", dlg).value);
       const localHas = DB.snapshots.length || DB.income.entries.length || DB.income.orders.length;
       const takeRemote = () => { dlg.close(); Sync.apply(data, Sync.state.lastRemote); toast(`Verbunden · Daten von ${file.device || "anderem Gerät"} übernommen`); };
@@ -2706,6 +2735,7 @@ function syncJoinDialog() {
       $("[data-local]", dlg).onclick = () => { dlg.close(); Sync.push(true); toast("Verbunden · Daten dieses Geräts werden hochgeladen"); go(); };
     } catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message || "Verbinden fehlgeschlagen.")}</div>`; }
   };
+  $("#j-man", dlg).onclick = () => { $("#j-manual", dlg).hidden = false; $("#j-g", dlg).focus(); };
   $("#j-c", dlg).focus();
 }
 function download(name, text, type) {
