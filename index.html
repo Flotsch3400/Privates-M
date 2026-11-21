@@ -231,6 +231,9 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .toggle .chev{width:14px;height:14px;transition:transform .15s}
 .toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}
 .cell-in{width:90px;text-align:right}
+.scan{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:4/3;max-width:100%}
+.scan video{width:100%;height:100%;object-fit:cover;display:block}
+.scan-frame{position:absolute;inset:16%;border:3px solid #34D399;border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
 .steps{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--ink-2)}
 .inl{display:inline-flex;gap:10px;align-items:center}
 
@@ -549,6 +552,7 @@ I.utensils = svg('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 
 I.percent = svg('<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>');
 I.tag = svg('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>');
 I.landmark = svg('<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>');
+I.camera = svg('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>');
 I.chevLeft = svg('<path d="m15 18-6-6 6-6"/>');
 I.chevRight = svg('<path d="m9 18 6-6-6-6"/>');
 I.menu = svg('<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>');
@@ -2690,8 +2694,8 @@ async function syncPairDialog() {
   openDlg(`<div class="dlg-h"><h2>Weiteres Gerät verbinden</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <ol class="steps"><li>Auf dem iPhone Tracky öffnen und zum Home-Bildschirm hinzufügen (Teilen → „Zum Home-Bildschirm“). Dann die <b>App</b> öffnen.</li>
-        <li>Diesen QR-Code mit der iPhone-Kamera scannen und den Text kopieren. Oder den Code unten kopieren und dir per AirDrop schicken.</li>
-        <li>In der App unter <b>Daten &amp; Einstellungen → Mit anderem Gerät verbinden</b> einfügen und dein Sync-Passwort eingeben.</li></ol>
+        <li>In der App: <b>Daten &amp; Einstellungen → Mit anderem Gerät verbinden → Mit Kamera scannen</b> und diesen QR-Code scannen. Nicht mit der Kamera-App, die kann mit dem Code nichts anfangen.</li>
+        <li>Dein Sync-Passwort eingeben, fertig. Alternativ den Code unten kopieren, per AirDrop schicken und einfügen.</li></ol>
       <div style="display:grid;justify-items:center;gap:10px"><div id="qr" style="background:#fff;padding:12px;border-radius:12px;width:244px;height:244px"></div></div>
       <div class="field"><label for="pc">Verbindungscode</label><div style="display:flex;gap:8px"><input class="input mono" id="pc" readonly value="${esc(code)}"><button class="btn" type="button" id="pc-copy">Kopieren</button></div>
         <span class="hint">Der Code enthält den Zugang zum Speicher (GitHub-Token), aber nicht dein Passwort. Teile ihn mit niemandem und poste ihn nirgends.</span></div>
@@ -2701,13 +2705,39 @@ async function syncPairDialog() {
   $("#pc-copy", dlg).onclick = e => copyText(code, e.currentTarget);
   try {
     await new Promise((res, rej) => { if (window.QRCode) return res(); const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = res; sc.onerror = rej; document.head.append(sc); });
-    new QRCode($("#qr", dlg), {text: code, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M});
+    new QRCode($("#qr", dlg), {text: code, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.L});
   } catch { $("#qr", dlg).outerHTML = '<p class="hint">QR-Code gerade nicht verfügbar. Nutze den Code darunter.</p>'; }
+}
+/** Reads a QR code with the device camera. onCode(text) returns true to stop. Returns a stop function. */
+async function scanQR(video, box, onCode) {
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error("Dieses Gerät erlaubt hier keinen Kamerazugriff. Bitte den Code kopieren und einfügen.");
+  if (!window.jsQR) await new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"; sc.onload = res; sc.onerror = () => rej(new Error("Der Scanner konnte nicht geladen werden. Besteht eine Internetverbindung?")); document.head.append(sc); });
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: {ideal: "environment"}, width: {ideal: 1280}, height: {ideal: 720}}, audio: false}); }
+  catch (e) { throw new Error(e?.name === "NotAllowedError" ? "Kamerazugriff wurde abgelehnt. Erlaube ihn in den iPhone-Einstellungen oder füge den Code per Kopieren ein." : "Die Kamera konnte nicht gestartet werden."); }
+  video.srcObject = stream; box.hidden = false; await video.play().catch(() => {});
+  const cv = document.createElement("canvas"), g = cv.getContext("2d", {willReadFrequently: true});
+  let live = true;
+  const stop = () => { if (!live) return; live = false; stream.getTracks().forEach(t => t.stop()); video.srcObject = null; box.hidden = true; };
+  const tick = () => {
+    if (!live) return;
+    if (video.readyState >= 2 && video.videoWidth) {
+      const w = Math.min(960, video.videoWidth), h = Math.round(video.videoHeight * w / video.videoWidth);
+      cv.width = w; cv.height = h; g.drawImage(video, 0, 0, w, h);
+      const res = window.jsQR(g.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "dontInvert"});
+      if (res?.data && onCode(res.data)) { stop(); navigator.vibrate?.(30); return; }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+  return stop;
 }
 function syncJoinDialog() {
   openDlg(`<form id="jf"><div class="dlg-h"><h2>Mit anderem Gerät verbinden</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <p class="sub" style="margin:0">Den Verbindungscode findest du auf dem anderen Gerät unter <b>Daten &amp; Einstellungen → Weiteres Gerät verbinden</b>.</p>
+      <button class="btn primary" type="button" id="j-scan" style="justify-self:start">${I.camera} Mit Kamera scannen</button>
+      <div class="scan" id="j-scanbox" hidden><video id="j-video" playsinline muted autoplay></video><div class="scan-frame"></div><button class="btn sm" type="button" id="j-scanstop" style="position:absolute;right:10px;bottom:10px">Abbrechen</button></div>
       <div class="field"><label for="j-c">Verbindungscode</label><textarea class="input mono" id="j-c" rows="3" style="min-height:84px" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="TRACKY1:…"></textarea>
         <button type="button" class="link-btn" id="j-man" style="justify-self:start">Code klappt nicht? Gist-ID und Token einzeln eingeben</button></div>
       <div class="row2" id="j-manual" hidden><div class="field"><label for="j-g">Gist-ID</label><input class="input mono" id="j-g" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
@@ -2736,6 +2766,19 @@ function syncJoinDialog() {
     } catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message || "Verbinden fehlgeschlagen.")}</div>`; }
   };
   $("#j-man", dlg).onclick = () => { $("#j-manual", dlg).hidden = false; $("#j-g", dlg).focus(); };
+  let stopScan = null;
+  $("#j-scan", dlg).onclick = async () => {
+    const msg = $("#j-msg", dlg);
+    try {
+      stopScan = await scanQR($("#j-video", dlg), $("#j-scanbox", dlg), text => {
+        if (!/TRACKY1/i.test(text)) { msg.innerHTML = '<div class="msg">Das ist kein Tracky-Code. Scanne den Code aus „Weiteres Gerät verbinden“ am Laptop.</div>'; return false; }
+        $("#j-c", dlg).value = text.trim(); msg.innerHTML = '<div class="msg info">Code erkannt. Jetzt dein Sync-Passwort eingeben.</div>';
+        $("#j-p", dlg).focus(); return true;
+      });
+    } catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message)}</div>`; }
+  };
+  $("#j-scanstop", dlg).onclick = () => stopScan?.();
+  dlg.addEventListener("close", () => stopScan?.(), {once: true});
   $("#j-c", dlg).focus();
 }
 function download(name, text, type) {
