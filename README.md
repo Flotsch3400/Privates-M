@@ -12,6 +12,7 @@ Tracky ist ein persönlicher Vermögens-Tracker im Browser: **https://flotsch340
 - **Depot & Kurse:** Aktien, ETFs, Fonds (Yahoo Finance), Krypto (CoinGecko, DexScreener), Edelmetalle und Wallets (Bitcoin, Ethereum, Solana, Algorand) mit Live-Kursen; Bestandslisten per Einfügen übernehmen
 - **Ziele & Planung:** Soll-/Ist-Aufteilung, Meilensteine, Prognose, Budget, echte Rendite (XIRR)
 - Hell- und Dunkelmodus, für Desktop, Tablet und Smartphone
+- Als App installierbar (Startbildschirm, Vollbild, startet auch offline)
 
 ## Marke
 
