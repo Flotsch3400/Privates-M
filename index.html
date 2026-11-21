@@ -628,6 +628,8 @@ function migrate() {
   const inc = DB.income ||= {};
   inc.entries ||= []; inc.orders ||= []; inc.deals ||= []; inc.settings ||= {};
   if (inc.settings.discount == null) inc.settings.discount = 0.1;
+  if (inc.settings.serviceRate == null) inc.settings.serviceRate = 0.025;
+  if (inc.settings.serviceCap == null) inc.settings.serviceCap = 0.89;
   inc.settings.employer ??= "";
   inc.settings.sourceDomains ||= {};
   inc.settings.sources ||= {}; inc.settings.sources.cashback ||= []; inc.settings.sources.zinsen ||= []; inc.settings.sources.sonstiges ||= [];
@@ -1784,19 +1786,23 @@ const monthLabel = m => parseD(m + "-01").toLocaleDateString(LOCALE, {month: "lo
 const shiftMonth = (m, k) => addMonths(m + "-01", k).slice(0, 7);
 /** Order maths. New orders: own food + each colleague's food + delivery fee, fee split evenly across everyone (you included).
     Older orders (total + own, optional amounts per person) keep their original calculation. */
-const isNewOrder = o => o.fee != null || (o.participants || []).some(x => x.food != null);
+const isNewOrder = o => o.fee != null || o.serviceRate != null || (o.participants || []).some(x => x.food != null);
+/** Lieferando service fee: share of the food subtotal, capped per order. */
+const serviceFee = (subtotal, rate, cap) => round2(Math.min(Math.max(subtotal, 0) * (+rate || 0), cap != null && cap !== "" ? +cap : Infinity));
 const orderCalc = o => {
   const d = +o.discount || 0, ps = o.participants || [];
   if (isNewOrder(o)) {
-    const fee = +o.fee || 0, n = ps.length + 1, feeShare = fee / n, E = +o.own || 0;
+    const E = +o.own || 0, food = E + ps.reduce((t, x) => t + (+x.food || 0), 0);
+    const service = o.serviceRate != null ? serviceFee(food, o.serviceRate, o.serviceCap) : 0, delivery = +o.fee || 0;
+    const fee = round2(service + delivery), n = ps.length + 1, feeShare = fee / n;
     const owes = ps.map(x => round2((+x.food || 0) + feeShare));
-    const B = round2(E + ps.reduce((t, x) => t + (+x.food || 0), 0) + fee);
+    const B = round2(food + fee);
     const myShare = E + feeShare, fromColleagues = owes.reduce((a, b) => a + b, 0);
     /* Paid with a voucher of value V bought at discount d; anything above V is paid at full price.
        The saving is spread evenly over the order, so colleagues' share earns the same effective discount. */
     const V = o.voucher != null && o.voucher !== "" ? Math.min(Math.max(+o.voucher || 0, 0), B) : B;
     const cost = V * (1 - d) + (B - V), eff = B ? (B - cost) / B : 0;
-    return {B, E, d, V, rest: B - V, eff, fee, feeShare, owes, myShare, fromColleagues, cost, profit: fromColleagues * eff, saving: myShare * eff};
+    return {B, E, d, V, rest: B - V, eff, fee, service, delivery, food, feeShare, owes, myShare, fromColleagues, cost, profit: fromColleagues * eff, saving: myShare * eff};
   }
   const B = +o.total || 0, E = Math.min(+o.own || 0, B);
   const owes = ps.map(x => x.amount != null ? +x.amount : ps.length ? round2((B - E) / ps.length) : 0);
@@ -2080,7 +2086,8 @@ function orderDialog(o, done) {
   const known = Object.entries(DB.income.orders.flatMap(x => x.participants || []).reduce((m, z) => (m[z.code] = (m[z.code] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).map(x => x[0]).slice(0, 14);
   const legacy = o && !isNewOrder(o);
   const rows = o ? (o.participants || []).map((z, i) => ({code: z.code, food: z.food ?? (legacy ? orderCalc(o).owes[i] : null), paid: !!z.paid, paidAt: z.paidAt})) : [];
-  const lastFee = DB.income.orders.filter(isNewOrder).sort((a, b) => b.date.localeCompare(a.date))[0]?.fee;
+  const svRate = o?.serviceRate ?? S_.serviceRate, svCap = o?.serviceCap ?? S_.serviceCap, oldFee = o?.fee || 0;
+  const pctTxt = v => (v * 100).toLocaleString("de-DE", {maximumFractionDigits: 2});
   const templates = []; DB.income.orders.slice().sort((a, b) => b.date.localeCompare(a.date)).forEach(x => {
     const key = (x.restaurant || "") + "|" + (x.participants || []).map(z => z.code).sort().join(",");
     if (templates.length < 3 && !templates.some(t_ => t_.key === key)) templates.push({key, ...x});
@@ -2090,14 +2097,17 @@ function orderDialog(o, done) {
       <div class="row2"><div class="field"><label for="o-d">Datum</label><input class="input" type="date" id="o-d" value="${o?.date || defaultDate()}"></div>
         <div class="field"><label for="o-r">Restaurant</label><div class="combo"><input class="input" id="o-r" value="${esc(o?.restaurant || "")}" placeholder="Restaurant wählen oder neu eingeben" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="o-rlist"><div class="combo-list" id="o-rlist" role="listbox" hidden></div></div></div></div>
       <div class="row4 nums"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
-        <div class="field"><label for="o-f">Liefergebühr</label><input class="input n" id="o-f" inputmode="decimal" value="${o ? fmtN.format(o.fee ?? 0) : lastFee != null ? fmtN.format(lastFee) : ""}" placeholder="0,00"></div>
+        <div class="field"><span class="lbl">Servicegebühr</span><button class="btn" type="button" id="o-sv" style="justify-content:flex-start;font-weight:500"><span id="o-svl">${pctTxt(svRate)} % · max. ${fmtN.format(svCap)} €</span></button></div>
         <div class="field"><label for="o-v">Gutschein eingesetzt</label><input class="input n" id="o-v" inputmode="decimal" value="${o?.voucher != null ? fmtN.format(o.voucher) : ""}" placeholder="ganze Bestellung"></div>
         <div class="field"><label for="o-p">Rabatt auf Gutschein %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
+      <div class="row2" id="o-svedit" hidden><div class="field"><label for="o-sr">Servicegebühr in %</label><input class="input n" id="o-sr" inputmode="decimal" value="${pctTxt(svRate)}"></div>
+        <div class="field"><label for="o-sc">Höchstens pro Bestellung (€)</label><input class="input n" id="o-sc" inputmode="decimal" value="${fmtN.format(svCap)}"></div></div>
+      ${oldFee ? `<div class="msg info">Diese Bestellung hat noch eine Liefergebühr von ${eur(oldFee)} aus der früheren Erfassung. Sie bleibt erhalten.</div>` : ""}
       ${isNew && templates.length ? `<div class="field"><span class="lbl">Wie letztes Mal</span><div class="actions">${templates.map((t_, i) => `<button class="btn sm" type="button" data-tpl="${i}">${esc(t_.restaurant || "Lieferando")} <span class="muted">· ${t_.participants.map(z => z.code).join(" ") || "allein"}</span></button>`).join("")}</div></div>` : ""}
       <div class="field"><span class="lbl">Mitbesteller</span>
         <div id="o-rows" style="display:grid;gap:6px"></div>
         <div class="actions" style="margin-top:4px"><button class="btn sm" type="button" id="o-add">${I.plus} Person</button>${known.map(c => `<button type="button" class="code" data-code="${esc(c)}" style="cursor:pointer">${esc(c)}</button>`).join("")}</div>
-        <span class="hint">Kürzel (3 Buchstaben) und Preis des Essens. Die Liefergebühr wird durch alle Besteller geteilt, dich eingeschlossen. Enter springt zur nächsten Person.</span></div>
+        <span class="hint">Kürzel (3 Buchstaben) und Preis des Essens. Die Servicegebühr wird durch alle Besteller geteilt (dich eingeschlossen) und automatisch dazugerechnet. Enter springt zur nächsten Person.</span></div>
       ${legacy ? '<div class="msg info">Diese Bestellung wurde noch mit dem Gesamtbetrag erfasst. Beim Speichern wird sie auf Essen pro Person umgestellt.</div>' : ""}
       <div class="calc" id="o-calc" aria-live="polite"></div>
     </div>
@@ -2121,14 +2131,17 @@ function orderDialog(o, done) {
     if (focusLast) $(`.p-row[data-i="${rows.length - 1}"] [data-f="${rows.at(-1).code ? "food" : "code"}"]`, box)?.focus();
     calc();
   };
-  const read = () => ({date: $("#o-d", dlg).value, restaurant: $("#o-r", dlg).value.trim(), own: round2(parseNum($("#o-e", dlg).value) || 0), fee: round2(parseNum($("#o-f", dlg).value) || 0),
+  const read = () => ({date: $("#o-d", dlg).value, restaurant: $("#o-r", dlg).value.trim(), own: round2(parseNum($("#o-e", dlg).value) || 0), ...(oldFee ? {fee: oldFee} : {}),
+    serviceRate: (() => { const v = parseNum($("#o-sr", dlg).value); return okNum(v) ? v / 100 : svRate; })(), serviceCap: (() => { const v = parseNum($("#o-sc", dlg).value); return okNum(v) ? v : svCap; })(),
     discount: (parseNum($("#o-p", dlg).value) || 0) / 100, voucher: (() => { const v = parseNum($("#o-v", dlg).value); return okNum(v) && $("#o-v", dlg).value.trim() ? round2(v) : null; })(), participants: rows.filter(r => r.code).map(r => ({code: r.code, food: round2(r.food || 0), paid: !!r.paid, ...(r.paidAt ? {paidAt: r.paidAt} : {})}))});
   const calc = () => {
     const r = read(), c = orderCalc(r);
     rows.forEach((row, i) => { const el = $(`[data-o="${i}"]`, box); if (!el) return; const k = r.participants.findIndex(p => p.code === row.code); el.textContent = row.code && k >= 0 ? "zahlt " + eurPlain(c.owes[k]) : ""; });
     const dup = r.participants.map(p => p.code).filter((c_, i, a) => a.indexOf(c_) !== i);
     $("#o-calc", dlg).innerHTML = `<div class="r"><span>Gesamtbetrag der Bestellung</span><b class="num">${eur(c.B)}</b></div>
-      <div class="r"><span>Liefergebühr je Person (${r.participants.length + 1})</span><span class="num">${eur(c.feeShare)}</span></div>
+      <div class="r"><span>Servicegebühr (${pctTxt(r.serviceRate)} %, max. ${eurPlain(r.serviceCap)})</span><span class="num">${eur(c.service)}</span></div>
+      ${c.delivery ? `<div class="r"><span>Liefergebühr (alte Erfassung)</span><span class="num">${eur(c.delivery)}</span></div>` : ""}
+      <div class="r"><span>Gebühr je Person (${r.participants.length + 1})</span><span class="num">${eur(c.feeShare)}</span></div>
       <div class="r"><span>Mit Gutschein bezahlt (${fmtPs.format(c.d)} Rabatt)</span><span class="num">${eur(c.V)} → ${eur(c.V * (1 - c.d))}</span></div>
       ${c.rest > 0.004 ? `<div class="r"><span>Rest normal bezahlt</span><span class="num">${eur(c.rest)}</span></div>` : ""}
       ${(() => { const v = parseNum($("#o-v", dlg).value); return okNum(v) && v > c.B + 0.004 ? `<span class="warn" style="font-size:12.5px;color:var(--warn)">Der Gutschein ist höher als die Bestellung. Gerechnet wird mit ${eur(c.B)}.</span>` : ""; })()}
@@ -2140,15 +2153,17 @@ function orderDialog(o, done) {
   $("#o-add", dlg).onclick = () => { rows.push({code: "", food: null}); drawRows(true); };
   $$("[data-tpl]", dlg).forEach(b => b.onclick = () => {
     const t_ = templates[+b.dataset.tpl], c_ = orderCalc(t_);
-    $("#o-r", dlg).value = t_.restaurant || ""; if (t_.fee != null) $("#o-f", dlg).value = fmtN.format(t_.fee);
+    $("#o-r", dlg).value = t_.restaurant || "";
     $("#o-e", dlg).placeholder = t_.own ? "zuletzt " + fmtN.format(t_.own) : "0,00";
     rows.length = 0; (t_.participants || []).forEach((z, i) => rows.push({code: z.code, food: null, hint: z.food ?? c_.owes[i]}));
     if (!rows.length) rows.push({code: "", food: null});
     drawRows(); $("#o-e", dlg).focus();
   });
   $$("[data-code]", dlg).forEach(b => b.onclick = () => { if (rows.some(r => r.code === b.dataset.code)) return; const empty = rows.find(r => !r.code); if (empty) empty.code = b.dataset.code; else rows.push({code: b.dataset.code, food: null}); drawRows(true); });
-  ["#o-e", "#o-f", "#o-p", "#o-v"].forEach(sel => $(sel, dlg).addEventListener("input", calc));
-  $("#o-e", dlg).addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const f = $('.p-row [data-f="' + (rows[0]?.code ? "food" : "code") + '"]', box); f ? f.focus() : $("#o-f", dlg).focus(); });
+  ["#o-e", "#o-p", "#o-v", "#o-sr", "#o-sc"].forEach(sel => $(sel, dlg).addEventListener("input", calc));
+  $("#o-sv", dlg).onclick = () => { const ed = $("#o-svedit", dlg); ed.hidden = !ed.hidden; if (!ed.hidden) $("#o-sr", dlg).focus(); };
+  ["#o-sr", "#o-sc"].forEach(sel => $(sel, dlg).addEventListener("input", () => { const r_ = read(); $("#o-svl", dlg).textContent = `${pctTxt(r_.serviceRate)} % · max. ${fmtN.format(r_.serviceCap)} €`; }));
+  $("#o-e", dlg).addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const f = $('.p-row [data-f="' + (rows[0]?.code ? "food" : "code") + '"]', box); f ? f.focus() : $("#o-v", dlg).focus(); });
   if (!rows.length) rows.push({code: "", food: null});
   drawRows();
   $("[data-del]", dlg)?.addEventListener("click", () => { DB.income.orders = DB.income.orders.filter(x => x !== o); save(true); dlg.close(); toast("Bestellung gelöscht"); done(); });
@@ -2160,7 +2175,7 @@ function orderDialog(o, done) {
     r.total = c.B;
     let rec = o;
     if (isNew) { rec = {id: "o" + uid(), ...r}; DB.income.orders.push(rec); } else { delete o.own; Object.assign(o, r); }
-    DB.income.settings.discount = r.discount;
+    DB.income.settings.discount = r.discount; DB.income.settings.serviceRate = r.serviceRate; DB.income.settings.serviceCap = r.serviceCap;
     incMonth = monthOf(r.date); save(true); done();
     if (rec.participants.length) messagesDialog(rec, done); else { dlg.close(); toast(`Bestellung gespeichert · Gewinn ${eur(c.profit)}`); }
   };
