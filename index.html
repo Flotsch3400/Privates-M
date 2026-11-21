@@ -316,6 +316,19 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .calc .r{display:flex;justify-content:space-between;gap:12px}
 .calc .r.total{border-top:1px solid var(--line-2);padding-top:6px;font-weight:700}
 .bars svg{display:block;width:100%;height:100%}
+.type-ic.brand,.lf-ic{position:relative;overflow:hidden}
+.type-ic.brand img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;padding:3px;border-radius:inherit}
+.lf-ic{display:inline-grid;place-items:center;width:18px;height:18px;flex:none;border-radius:5px}
+.lf-ic .ic{width:16px;height:16px}
+.lf-ic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff;border-radius:5px}
+.tabbar .lf-ic{width:20px;height:20px}
+/* combobox */
+.combo{position:relative}
+.combo-list{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-s);box-shadow:var(--shadow-lg);max-height:280px;overflow:auto;padding:4px}
+.combo-list button{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
+.combo-list button[aria-selected="true"],.combo-list button:hover{background:var(--surface-2)}
+.combo-list small{color:var(--ink-3)}
+.combo-list .add{color:var(--brand-ink);font-weight:600}
 .code.paid{background:var(--pos-bg);color:var(--pos);border-color:transparent;text-decoration:line-through}
 .p-row{display:grid;grid-template-columns:92px minmax(0,1fr) 110px 30px;gap:8px;align-items:center}
 .p-owes{text-align:right;font-size:12.5px}
@@ -495,7 +508,7 @@ const NAV = [
   ["aktien", "Aktien & ETFs", I.trendingUp, "Aktien", "Vermögen", true],
   ["krypto", "Krypto", I.bitcoin, "Krypto", "Vermögen", true],
   ["einkommen", "Einkommen", I.banknote, "Einkommen", "Vermögen", true],
-  ["lieferando", "Lieferando", I.utensils, "Lieferando", "Vermögen", true],
+  ["lieferando", "Lieferando", `<span class="lf-ic" aria-hidden="true">${I.utensils}<img src="https://www.google.com/s2/favicons?domain=lieferando.at&sz=64" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>`, "Lieferando", "Vermögen", true],
   ["planung", "Ziele & Planung", I.target, "Ziele", "Vermögen", false],
   ["bewertung", "Neue Bewertung", I.plusCircle, "Bewerten", "Verwalten", false],
   ["depot", "Depot & Kurse", I.chartCombined, "Depot", "Verwalten", false],
@@ -1527,7 +1540,10 @@ const INC_TYPES = {
   zinsen: {label: "Zinsen", icon: "landmark", color: "var(--cat-krypto)"},
   sonstiges: {label: "Sonstiges", icon: "coins", color: "var(--cat-sachwerte)"},
 };
-const typeIc = t => `<span class="type-ic" style="--tc:${INC_TYPES[t].color}" aria-hidden="true">${I[INC_TYPES[t].icon]}</span>`;
+const BRAND_LOGO = {lieferando: "lieferando.at"};
+const typeIc = t => `<span class="type-ic ${BRAND_LOGO[t] ? "brand" : ""}" style="--tc:${INC_TYPES[t].color}" aria-hidden="true">${I[INC_TYPES[t].icon]}${BRAND_LOGO[t] ? `<img src="${favicon(BRAND_LOGO[t])}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
+/** Lieferando logo for navigation and buttons (16px, falls back to the cutlery icon). */
+const lfIcon = () => `<span class="lf-ic" aria-hidden="true">${I.utensils}<img src="${favicon("lieferando.at")}" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>`;
 const monthOf = d => (d || "").slice(0, 7);
 const monthLabel = m => parseD(m + "-01").toLocaleDateString(LOCALE, {month: "long", year: "numeric"});
 const shiftMonth = (m, k) => addMonths(m + "-01", k).slice(0, 7);
@@ -1628,7 +1644,7 @@ VIEWS.einkommen = v => {
   incMonth ||= store.get("inc-month", null) || todayISO().slice(0, 7);
   v.innerHTML = `<div class="head"><div><h1>Einkommen</h1><p>Was du im Monat verdient hast und woher: Gehalt, Lieferando-Bestellungen, Cashback, Willhaben-Deals, Zinsen und Sonstiges.</p></div>
       <div class="quick">
-        <button class="btn primary" type="button" data-new="lieferando">${I.utensils} Lieferando-Bestellung</button>
+        <button class="btn primary" type="button" data-new="lieferando">${lfIcon()} Lieferando-Bestellung</button>
         <button class="btn" type="button" data-new="gehalt">${I.briefcase} Gehalt</button>
         <button class="btn" type="button" data-new="cashback">${I.percent} Cashback</button>
         <button class="btn" type="button" data-new="zinsen">${I.landmark} Zinsen</button>
@@ -1735,7 +1751,6 @@ function entryDialog(type, e, done) {
 }
 function orderDialog(o, done) {
   const isNew = !o, S_ = DB.income.settings;
-  const restaurants = uniqVals(DB.income.orders.map(x => x.restaurant));
   const known = Object.entries(DB.income.orders.flatMap(x => x.participants || []).reduce((m, z) => (m[z.code] = (m[z.code] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).map(x => x[0]).slice(0, 14);
   const legacy = o && !isNewOrder(o);
   const rows = o ? (o.participants || []).map((z, i) => ({code: z.code, food: z.food ?? (legacy ? orderCalc(o).owes[i] : null), paid: !!z.paid, paidAt: z.paidAt})) : [];
@@ -1743,7 +1758,7 @@ function orderDialog(o, done) {
   openDlg(`<form id="of"><div class="dlg-h"><h2 class="inl">${typeIc("lieferando")}${isNew ? "Lieferando-Bestellung" : "Bestellung bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <div class="row2"><div class="field"><label for="o-d">Datum</label><input class="input" type="date" id="o-d" value="${o?.date || defaultDate()}"></div>
-        <div class="field"><label for="o-r">Restaurant</label><input class="input" id="o-r" list="o-rl" value="${esc(o?.restaurant || "")}" placeholder="Wo bestellt?"><datalist id="o-rl">${restaurants.map(x => `<option value="${esc(x)}">`).join("")}</datalist></div></div>
+        <div class="field"><label for="o-r">Restaurant</label><div class="combo"><input class="input" id="o-r" value="${esc(o?.restaurant || "")}" placeholder="Restaurant wählen oder neu eingeben" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="o-rlist"><div class="combo-list" id="o-rlist" role="listbox" hidden></div></div></div></div>
       <div class="row3"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
         <div class="field"><label for="o-f">Liefergebühr</label><input class="input n" id="o-f" inputmode="decimal" value="${o ? fmtN.format(o.fee ?? 0) : lastFee != null ? fmtN.format(lastFee) : ""}" placeholder="0,00"></div>
         <div class="field"><label for="o-p">Rabatt Guthaben %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
@@ -1755,6 +1770,7 @@ function orderDialog(o, done) {
       <div class="calc" id="o-calc" aria-live="polite"></div>
     </div>
     <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Löschen</button>' : ""}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">${isNew ? "Speichern & Texte" : "Speichern"}</button></div></div></form>`, true);
+  restaurantCombo($("#o-r", dlg), $("#o-rlist", dlg), () => $("#o-e", dlg).focus());
   const box = $("#o-rows", dlg);
   const drawRows = focusLast => {
     box.innerHTML = rows.map((r, i) => `<div class="p-row" data-i="${i}"><input class="input mono" data-f="code" maxlength="4" value="${esc(r.code || "")}" placeholder="ABC" aria-label="Kürzel ${i + 1}" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
@@ -1805,6 +1821,42 @@ function orderDialog(o, done) {
     if (rec.participants.length) messagesDialog(rec, done); else { dlg.close(); toast(`Bestellung gespeichert · Gewinn ${eur(c.profit)}`); }
   };
   $(isNew ? "#o-r" : "#o-e", dlg).focus();
+}
+/** Restaurants you ordered from before: most frequent first, with count and last date. */
+function knownRestaurants() {
+  const m = {};
+  DB.income.orders.forEach(o => { const k = (o.restaurant || "").trim(); if (!k) return; const r = m[k.toLowerCase()] ||= {name: k, n: 0, last: ""}; r.n++; if (o.date > r.last) { r.last = o.date; r.name = k; } });
+  return Object.values(m).sort((a, b) => b.n - a.n || b.last.localeCompare(a.last));
+}
+/** Combobox: opens the list on focus, filters while typing, offers "add new" for unknown names. */
+function restaurantCombo(inp, list, onPick) {
+  const all = knownRestaurants();
+  let opts = [], sel = -1;
+  const close = () => { list.hidden = true; inp.setAttribute("aria-expanded", "false"); sel = -1; };
+  const draw = () => {
+    const q = inp.value.trim(), ql = q.toLowerCase();
+    const hits = all.filter(r => !ql || r.name.toLowerCase().includes(ql));
+    const exact = all.some(r => r.name.toLowerCase() === ql);
+    opts = [...hits.map(r => ({name: r.name, r})), ...(q && !exact ? [{name: q, add: true}] : [])];
+    if (!opts.length) { list.innerHTML = `<div class="hint" style="padding:10px">Noch keine Restaurants. Einfach den Namen eintippen.</div>`; }
+    else list.innerHTML = opts.map((x, i) => x.add
+      ? `<button type="button" role="option" data-i="${i}" aria-selected="${i === sel}"><span class="type-ic" style="--tc:var(--brand)">${I.plus}</span><span class="add">„${esc(x.name)}“ als neues Restaurant hinzufügen</span><span></span></button>`
+      : `<button type="button" role="option" data-i="${i}" aria-selected="${i === sel}">${logoBox("", x.name, "sm")}<span>${esc(x.name)}</span><small class="num">${x.r.n}× · zuletzt ${fmtDate(x.r.last)}</small></button>`).join("");
+    list.hidden = false; inp.setAttribute("aria-expanded", "true");
+    $$("button", list).forEach(b => b.onmousedown = e => { e.preventDefault(); pick(+b.dataset.i); });
+  };
+  const pick = i => { const x = opts[i]; if (!x) return; inp.value = x.name; close(); inp.dispatchEvent(new Event("input")); onPick?.(); };
+  inp.addEventListener("focus", draw);
+  inp.addEventListener("click", draw);
+  inp.addEventListener("input", e => { if (e.isTrusted) { sel = -1; draw(); } });
+  inp.addEventListener("blur", () => setTimeout(close, 120));
+  inp.addEventListener("keydown", e => {
+    if (list.hidden && (e.key === "ArrowDown" || e.key === "ArrowUp")) { draw(); }
+    if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(opts.length - 1, sel + 1); draw(); $(`[data-i="${sel}"]`, list)?.scrollIntoView({block: "nearest"}); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(0, sel - 1); draw(); $(`[data-i="${sel}"]`, list)?.scrollIntoView({block: "nearest"}); }
+    else if (e.key === "Enter") { e.preventDefault(); if (!list.hidden && sel >= 0) pick(sel); else if (!list.hidden && opts.length === 1) pick(0); else { close(); onPick?.(); } }
+    else if (e.key === "Escape" && !list.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
+  });
 }
 /** Copyable Teams texts per person, with "paid" ticks. */
 function messagesDialog(o, done) {
