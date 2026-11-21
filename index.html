@@ -231,6 +231,7 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .toggle .chev{width:14px;height:14px;transition:transform .15s}
 .toggle[aria-expanded="true"] .chev{transform:rotate(90deg)}
 .cell-in{width:90px;text-align:right}
+.steps{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--ink-2)}
 .inl{display:inline-flex;gap:10px;align-items:center}
 
 /* ---------- valuation ---------- */
@@ -284,7 +285,7 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .with-logo > span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* ---------- dialog ---------- */
-dialog{border:1px solid var(--line-2);border-radius:18px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 40px);box-shadow:var(--shadow-lg)}
+dialog{border:1px solid var(--line-2);border-radius:18px;padding:0;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 40px);box-shadow:var(--shadow-lg)}
 dialog.wide{width:min(840px,calc(100vw - 32px))}
 dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .dlg-h{padding:20px 22px 0;display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -364,7 +365,7 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .stat{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-s);display:grid;gap:2px;min-width:0}
 .stat b{font-size:19px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat span{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width: 760px){ .p-row{grid-template-columns:72px minmax(0,1fr) 30px} .p-row .p-owes{grid-column:1/-1;text-align:left;margin-top:-4px} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
+@media (max-width: 760px){ .p-row{grid-template-columns:80px minmax(0,1fr) 36px} .p-row [data-rm]{order:3} .p-row .p-owes{order:4;grid-column:1/-1;text-align:left;margin-top:-4px} .row3.nums{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px} .row3.nums label{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1080px){
@@ -402,6 +403,32 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
   .bar-row{grid-template-columns:minmax(0,120px) minmax(0,1fr) auto}
   .card-h{padding:16px 16px 0} .card-b{padding:14px 16px 16px} .gh{padding:13px 16px}
 }
+/* ---------- iPhone / touch ---------- */
+html{-webkit-text-size-adjust:100%}
+button,a,input,select,label{-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+@media (max-width: 760px){
+  /* status bar area (Dynamic Island) when installed on the home screen */
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);background:#0B0F1A;z-index:40}
+  main{padding-top:calc(14px + env(safe-area-inset-top,0px))}
+  /* 16px text in fields stops iOS from zooming in on focus */
+  .input,.input.sm,select.input,textarea.input{font-size:16px}
+  .input{height:44px}
+  .input.sm{height:38px}
+  .btn{height:44px}
+  .btn.sm{height:36px}
+  .btn.icon{width:44px} .btn.sm.icon{width:36px}
+  .seg button{height:34px}
+  .p-row input,.m-row input{height:44px}
+  /* dialogs become bottom sheets */
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;border-bottom:0;max-height:92dvh;padding-bottom:env(safe-area-inset-bottom,0px);animation:sheet .22s ease-out}
+  dialog.wide{width:100%}
+  dialog .dlg-h{position:sticky;top:0;background:var(--surface);z-index:2;padding-top:18px}
+  dialog .dlg-h::before{content:"";position:absolute;left:50%;top:7px;width:40px;height:5px;border-radius:3px;background:var(--line-2);transform:translateX(-50%)}
+  dialog .dlg-f{position:sticky;bottom:0;background:var(--surface);padding-top:12px;border-top:1px solid var(--line);z-index:2}
+  .toast{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+  .hero-total{font-size:42px}
+}
+@keyframes sheet{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 </style>
 </head>
@@ -412,6 +439,7 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
     <nav class="nav" id="nav"></nav>
     <div class="side-foot">
       <div class="status"><span class="dot" id="st-store-dot"></span><span id="st-store">Lädt …</span></div>
+      <div class="status" id="st-sync-row" hidden><span class="dot" id="st-sync-dot"></span><span id="st-sync"></span></div>
       <div class="status"><span class="dot" id="st-live-dot"></span><span id="st-live">Live-Kurse: noch nicht geladen</span></div>
       <div class="seg theme-seg" role="group" aria-label="Darstellung"></div>
     </div>
@@ -582,7 +610,8 @@ function migrate() {
   inc.settings.sources ||= {}; inc.settings.sources.cashback ||= []; inc.settings.sources.zinsen ||= []; inc.settings.sources.sonstiges ||= [];
   DB.version = 2;
 }
-function save(immediate) {
+/** quiet: store locally only (e.g. refreshed prices), do not trigger a sync. */
+function save(immediate, quiet) {
   clearTimeout(saveTimer);
   DB.snapshots.sort((a, b) => a.date.localeCompare(b.date));
   const run = async () => {
@@ -590,11 +619,13 @@ function save(immediate) {
       try { const r = await fetch("api/data", {method: "PUT", headers: {"Content-Type": "application/json"}, body: JSON.stringify(DB)}); if (!r.ok) throw 0; setStoreStatus(); }
       catch { setStoreStatus("Speichern fehlgeschlagen. Läuft der Server noch?"); }
     } else { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); setStoreStatus(); } catch { setStoreStatus("Speichern im Browser nicht möglich. Bitte Backup herunterladen."); } }
+    if (!applyingRemote && !quiet) Sync.changed();
   };
   immediate ? run() : (saveTimer = setTimeout(run, 300));
 }
 function backupDue() {
   if (MODE === "server" || !DB?.snapshots.length) return false;
+  if (Sync.on() && Sync.state.lastSyncAt && Date.now() - new Date(Sync.state.lastSyncAt) < 14 * 864e5) return false;
   const b = store.get("last-backup", null);
   return !b || Date.now() - new Date(b) > 30 * 864e5;
 }
@@ -606,6 +637,122 @@ function setStoreStatus(err) {
   dot.className = backupDue() ? "dot warn" : "dot ok";
   t.textContent = "Gespeichert in diesem Browser" + (b ? ` · Backup ${new Date(b).toLocaleDateString(LOCALE)}` : " · noch kein Backup");
 }
+
+/* ================= Sync between devices =================
+   Data is encrypted on the device (AES-256-GCM, key derived from your password with PBKDF2) and stored as a
+   single file in a secret GitHub Gist of your own account. GitHub only ever sees ciphertext.
+   Every device keeps its own copy; changes are pushed a few seconds after saving and pulled on start,
+   when the app comes back to the foreground and every two minutes. */
+let applyingRemote = false;
+const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+const deviceName = () => { const u = navigator.userAgent; return /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Mac/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows-PC" : "Gerät"; };
+const Sync = {
+  KEY: "tracky-sync",
+  state: store.get("tracky-sync", null) || {},
+  key: null, timer: null, busy: false,
+  on() { return !!(this.state.token && this.state.gistId && this.state.keyJwk); },
+  persist() { store.set(this.KEY, this.state); },
+  async importKey() { if (!this.key && this.state.keyJwk) this.key = await crypto.subtle.importKey("jwk", this.state.keyJwk, {name: "AES-GCM"}, true, ["encrypt", "decrypt"]); return this.key; },
+  async derive(pass, saltB64) {
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pass), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name: "PBKDF2", salt: unb64(saltB64), iterations: 310000, hash: "SHA-256"}, base, {name: "AES-GCM", length: 256}, true, ["encrypt", "decrypt"]);
+  },
+  async seal(obj) {
+    const iv = crypto.getRandomValues(new Uint8Array(12)), key = await this.importKey();
+    const ct = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, new TextEncoder().encode(JSON.stringify(obj)));
+    return JSON.stringify({app: "tracky", v: 1, salt: this.state.salt, iv: b64(iv), ct: b64(ct), savedAt: new Date().toISOString(), device: deviceName()});
+  },
+  async open(file, key) {
+    const pt = await crypto.subtle.decrypt({name: "AES-GCM", iv: unb64(file.iv)}, key || await this.importKey(), unb64(file.ct));
+    return JSON.parse(new TextDecoder().decode(pt));
+  },
+  async api(path, opts = {}, token) {
+    const r = await fetch("https://api.github.com" + path, {...opts, cache: "no-store", headers: {"Accept": "application/vnd.github+json", "Authorization": "Bearer " + (token || this.state.token), ...(opts.body ? {"Content-Type": "application/json"} : {})}});
+    if (r.status === 401) throw new Error("Der GitHub-Token ist ungültig oder abgelaufen.");
+    if (r.status === 404) throw new Error("Der Sync-Speicher wurde nicht gefunden.");
+    if (!r.ok) throw new Error("GitHub antwortet nicht (" + r.status + ").");
+    return r.json();
+  },
+  async readGist(id, token) {
+    const g = await this.api("/gists/" + id, {}, token), f = g.files?.["tracky.json"];
+    if (!f) throw new Error("In diesem Gist liegen keine Tracky-Daten.");
+    const content = f.truncated ? await (await fetch(f.raw_url, {cache: "no-store"})).text() : f.content;
+    return {file: JSON.parse(content), updatedAt: g.updated_at};
+  },
+  status(kind, text) {
+    const row = $("#st-sync-row"); if (!row) return;
+    row.hidden = !this.on() && !text;
+    $("#st-sync-dot").className = "dot " + (kind || "");
+    $("#st-sync").textContent = text || "";
+    $("#sync-state") && (($("#sync-state").innerHTML = text ? `<span class="dot ${kind || ""}" style="display:inline-block;margin:0 6px 1px 0"></span>${esc(text)}` : ""));
+  },
+  showOk() { this.status("ok", "Synchronisiert " + (this.state.lastSyncAt ? new Date(this.state.lastSyncAt).toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"}) : "")); },
+  /** First device: create the gist with the current data. */
+  async create(token, pass) {
+    const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
+    const key = await this.derive(pass, salt);
+    this.key = key; this.state = {token, salt, keyJwk: await crypto.subtle.exportKey("jwk", key)};
+    const g = await this.api("/gists", {method: "POST", body: JSON.stringify({description: "Tracky – verschlüsselte Daten (nicht löschen)", public: false, files: {"tracky.json": {content: await this.seal(DB)}}})}, token);
+    Object.assign(this.state, {gistId: g.id, lastRemote: g.updated_at, lastSyncAt: new Date().toISOString(), dirty: false});
+    this.persist(); this.showOk();
+  },
+  /** Further device: connect to an existing gist. Returns the remote data so the caller can decide. */
+  async connect(token, gistId, pass) {
+    const {file, updatedAt} = await this.readGist(gistId, token);
+    const key = await this.derive(pass, file.salt);
+    let data; try { data = await this.open(file, key); } catch { throw new Error("Das Passwort passt nicht zu diesen Daten."); }
+    this.key = key; this.state = {token, gistId, salt: file.salt, keyJwk: await crypto.subtle.exportKey("jwk", key), lastRemote: updatedAt, dirty: false};
+    this.persist();
+    return {data, file};
+  },
+  disconnect() { this.state = {}; this.key = null; store.set(this.KEY, null); this.status("", ""); },
+  changed() { if (!this.on()) return; this.state.dirty = true; this.state.localChangedAt = new Date().toISOString(); this.persist(); this.status("", "Änderungen werden synchronisiert …"); clearTimeout(this.timer); this.timer = setTimeout(() => this.push(), 2500); },
+  async push(force) {
+    if (!this.on() || this.busy) return; this.busy = true;
+    try {
+      if (!force) {
+        const g = await this.api("/gists/" + this.state.gistId);
+        if (g.updated_at !== this.state.lastRemote) { this.busy = false; return this.pull(true); }
+      }
+      const g = await this.api("/gists/" + this.state.gistId, {method: "PATCH", body: JSON.stringify({files: {"tracky.json": {content: await this.seal(DB)}}})});
+      Object.assign(this.state, {lastRemote: g.updated_at, lastSyncAt: new Date().toISOString(), dirty: false}); this.persist(); this.showOk(); setStoreStatus();
+    } catch (e) { this.status("warn", "Sync fehlgeschlagen: " + e.message); }
+    this.busy = false;
+  },
+  async pull(fromPush) {
+    if (!this.on() || this.busy) return; this.busy = true;
+    try {
+      const {file, updatedAt} = await this.readGist(this.state.gistId);
+      if (updatedAt === this.state.lastRemote) { this.busy = false; if (this.state.dirty) return this.push(); this.showOk(); return; }
+      const data = await this.open(file);
+      if (this.state.dirty) { this.busy = false; return this.conflict(data, file, updatedAt); }
+      this.apply(data, updatedAt);
+      toast(`Neuer Stand von ${file.device || "einem anderen Gerät"} übernommen`);
+    } catch (e) { this.status("warn", "Sync fehlgeschlagen: " + e.message); }
+    this.busy = false;
+  },
+  apply(data, updatedAt) {
+    applyingRemote = true;
+    DB = data; migrate(); try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch {}
+    applyingRemote = false;
+    Object.assign(this.state, {lastRemote: updatedAt, lastSyncAt: new Date().toISOString(), dirty: false}); this.persist(); this.showOk();
+    if (!dlg.open) go();
+  },
+  conflict(data, file, updatedAt) {
+    const when = d => d ? new Date(d).toLocaleString(LOCALE, {day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit"}) : "–";
+    openDlg(`<div class="dlg-h"><h2>Zwei verschiedene Stände</h2></div>
+      <div class="dlg-b"><p class="sub" style="margin:0">Auf diesem Gerät und auf ${esc(file.device || "einem anderen Gerät")} wurde seit dem letzten Sync etwas geändert. Welcher Stand soll gelten? Der andere wird überschrieben.</p>
+        <div class="struct"><div class="r"><span>Dieses Gerät (${esc(deviceName())})</span><span class="num">geändert ${when(this.state.localChangedAt)}</span></div>
+        <div class="r"><span>${esc(file.device || "Anderes Gerät")}</span><span class="num">gespeichert ${when(file.savedAt)}</span></div></div>
+        <p class="hint" style="margin:0">Tipp: Lade vorher ein Backup herunter, wenn du ganz sicher gehen willst.</p></div>
+      <div class="dlg-f"><button class="btn" type="button" data-remote>Stand von ${esc(file.device || "anderem Gerät")} nehmen</button><div class="r"><button class="btn primary" type="button" data-local>Diesen Stand behalten</button></div></div>`);
+    $("[data-remote]", dlg).onclick = () => { dlg.close(); this.apply(data, updatedAt); toast("Anderer Stand übernommen"); };
+    $("[data-local]", dlg).onclick = () => { dlg.close(); this.state.lastRemote = updatedAt; this.persist(); this.push(true); toast("Dieser Stand wird hochgeladen"); };
+  },
+  pairCode() { return "TRACKY1:" + btoa(JSON.stringify({g: this.state.gistId, t: this.state.token})); },
+  parseCode(code) { const m = String(code || "").trim().match(/^TRACKY1:(.+)$/); if (!m) throw new Error("Das ist kein Tracky-Verbindungscode."); const o = JSON.parse(atob(m[1])); if (!o.g || !o.t) throw new Error("Der Verbindungscode ist unvollständig."); return o; },
+};
 
 /* ================= Domain ================= */
 const catIdx = key => Math.max(0, DB.categories.findIndex(c => c.key === key));
@@ -898,7 +1045,7 @@ async function refreshQuotes(silent) {
       if (Object.keys(j.quotes).length) {
         quotesAt = new Date();
         Object.entries(j.quotes).forEach(([k, q]) => DB.lastQuotes[k] = {priceEur: q.priceEur, balance: q.balance, at: quotesAt.toISOString()});
-        save();
+        save(false, true);
       }
       if (!silent) toast(!Object.keys(j.quotes).length ? "Keine Kurse erreichbar. Besteht eine Internetverbindung?" : Object.keys(QERR).length ? `Kurse aktualisiert, ${Object.keys(QERR).length} ohne Kurs` : "Kurse aktualisiert");
     } finally {
@@ -991,6 +1138,7 @@ function go() {
   const h = location.hash.replace("#", "");
   route = NAV.some(n => n[0] === h) ? h : "uebersicht";
   if (route !== "bewertung") editId = null;
+  if (dlg.open) dlg.close();
   renderNav(); onQuotes = () => {}; resizeFns = [];
   const v = $("#view"); v.innerHTML = "";
   VIEWS[route](v);
@@ -1201,8 +1349,9 @@ VIEWS.uebersicht = v => {
     $("#dn-v").textContent = c ? eur0(c.v) : eur0(assets);
     $("#dn-l").textContent = c ? `${c.label} · ${c.v > 0 ? fmtPs.format(c.v / assets) : "Schuld"}` : "Vermögenswerte";
   };
-  $$("#donut circle[data-k]").forEach(el => { el.onmouseenter = () => focus(el.dataset.k); el.onmouseleave = () => focus(null); });
-  $$("#alloc .alloc-row").forEach(el => { el.onmouseenter = () => focus(el.dataset.cat); el.onmouseleave = () => focus(null); });
+  let tapped = null; const tap = k => { tapped = tapped === k ? null : k; focus(tapped); };
+  $$("#donut circle[data-k]").forEach(el => { el.onmouseenter = () => focus(el.dataset.k); el.onmouseleave = () => focus(tapped); el.onclick = () => tap(el.dataset.k); });
+  $$("#alloc .alloc-row").forEach(el => { el.onmouseenter = () => focus(el.dataset.cat); el.onmouseleave = () => focus(tapped); el.onclick = () => tap(el.dataset.cat); });
 
   // periods
   const per = [["Letzte Erfassung", P], ["1 Monat", snapAtOrBefore(addMonths(L.date, -1))], ["3 Monate", snapAtOrBefore(addMonths(L.date, -3))], ["6 Monate", snapAtOrBefore(addMonths(L.date, -6))], ["12 Monate", y1], ["3 Jahre", snapAtOrBefore(addMonths(L.date, -36))], ["5 Jahre", snapAtOrBefore(addMonths(L.date, -60))], ["Jahresbeginn", ytdBase], ["Erste Erfassung", S[0]]];
@@ -1525,8 +1674,9 @@ function catView(v, key) {
     const x = slices.find(y => y.k === k);
     $("#cv-donut [data-cv]").textContent = eur0(x ? x.v : pos); $("#cv-donut [data-cl]").textContent = x ? `${x.label} · ${fmtPs.format(x.v / pos)}` : label;
   };
-  $$("#cv-donut circle[data-k]").forEach(el => { el.onmouseenter = () => focus(el.dataset.k); el.onmouseleave = () => focus(null); });
-  $$("#cv-legend .alloc-row").forEach(el => { el.onmouseenter = () => focus(el.dataset.cat); el.onmouseleave = () => focus(null); });
+  let tapped = null; const tap = k => { tapped = tapped === k ? null : k; focus(tapped); };
+  $$("#cv-donut circle[data-k]").forEach(el => { el.onmouseenter = () => focus(el.dataset.k); el.onmouseleave = () => focus(tapped); el.onclick = () => tap(el.dataset.k); });
+  $$("#cv-legend .alloc-row").forEach(el => { el.onmouseenter = () => focus(el.dataset.cat); el.onmouseleave = () => focus(tapped); el.onclick = () => tap(el.dataset.cat); });
 
   // accounts table
   const recent = S.slice(-12);
@@ -1889,7 +2039,7 @@ function orderDialog(o, done) {
     <div class="dlg-b">
       <div class="row2"><div class="field"><label for="o-d">Datum</label><input class="input" type="date" id="o-d" value="${o?.date || defaultDate()}"></div>
         <div class="field"><label for="o-r">Restaurant</label><div class="combo"><input class="input" id="o-r" value="${esc(o?.restaurant || "")}" placeholder="Restaurant wählen oder neu eingeben" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="o-rlist"><div class="combo-list" id="o-rlist" role="listbox" hidden></div></div></div></div>
-      <div class="row3"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
+      <div class="row3 nums"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
         <div class="field"><label for="o-f">Liefergebühr</label><input class="input n" id="o-f" inputmode="decimal" value="${o ? fmtN.format(o.fee ?? 0) : lastFee != null ? fmtN.format(lastFee) : ""}" placeholder="0,00"></div>
         <div class="field"><label for="o-p">Rabatt Guthaben %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
       ${isNew && templates.length ? `<div class="field"><span class="lbl">Wie letztes Mal</span><div class="actions">${templates.map((t_, i) => `<button class="btn sm" type="button" data-tpl="${i}">${esc(t_.restaurant || "Lieferando")} <span class="muted">· ${t_.participants.map(z => z.code).join(" ") || "allein"}</span></button>`).join("")}</div></div>` : ""}
@@ -2390,6 +2540,7 @@ VIEWS.planung = v => {
 /* ================= View: Daten ================= */
 VIEWS.daten = v => {
   v.innerHTML = `<div class="head"><div><h1>Daten & Einstellungen</h1><p>Darstellung wählen und Daten sichern. ${MODE === "server" ? "Der Server legt zusätzlich jeden Tag eine Sicherung im Ordner „backups“ an." : ""}</p></div></div>
+    <div class="card" id="sync-card"></div>
     <div class="card"><div class="card-h"><h2>Einkommensquellen</h2><span class="muted" style="font-size:12.5px">Webseite eintragen, dann erscheint das Logo</span></div><div class="card-b" id="src-list"></div></div>
     <div class="card"><div class="card-h"><h2>Darstellung</h2></div><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <span class="sub">Hell, dunkel oder wie dein Gerät eingestellt ist. Die Auswahl bleibt gespeichert.</span><div class="seg theme-seg" data-labels="1" role="group" aria-label="Darstellung"></div></div></div>
@@ -2407,10 +2558,11 @@ VIEWS.daten = v => {
       </div></div>
     </div>`;
   applyTheme();
+  drawSyncCard();
   const drawSources = () => {
     const st = DB.income.settings, groups = [["gehalt", st.employer ? [st.employer] : []], ["zinsen", knownSources("zinsen").map(x => x.name)], ["cashback", knownSources("cashback").map(x => x.name)], ["sonstiges", knownSources("sonstiges").map(x => x.name)]];
     $("#src-list").innerHTML = groups.filter(([, l]) => l.length).map(([ty, list]) => `<div class="eyebrow inl" style="gap:8px;margin:10px 0 6px">${typeIc(ty)}${INC_TYPES[ty].label}</div>` +
-      list.map(nm => `<div class="m-row" style="grid-template-columns:minmax(0,1fr) minmax(0,220px) 30px"><span class="with-logo" data-logo="${esc(nm)}">${sourceLogo(nm)}<span>${esc(nm)}</span></span>
+      list.map(nm => `<div class="m-row" style="grid-template-columns:minmax(0,1fr) minmax(110px,40%) 36px"><span class="with-logo" data-logo="${esc(nm)}">${sourceLogo(nm)}<span>${esc(nm)}</span></span>
         <input class="input sm" data-dom="${esc(nm)}" value="${esc(st.sourceDomains[nm] || "")}" placeholder="${esc(decodeURIComponent((sourceLogo(nm).match(/domain=([^&"]+)/) || [])[1] || "") || "z. B. firma.at")}" aria-label="Webseite ${esc(nm)}" spellcheck="false" autocomplete="off">
         ${ty === "gehalt" ? "<span></span>" : `<button class="btn ghost sm icon" type="button" data-rmsrc="${ty}|${esc(nm)}" aria-label="${esc(nm)} aus der Liste entfernen" title="Aus der Liste entfernen">${I.x}</button>`}</div>`).join("")).join("")
       || '<p class="muted" style="margin:0">Noch keine Quellen. Sie entstehen automatisch, sobald du Gehalt, Zinsen oder Cashback erfasst.</p>';
@@ -2463,6 +2615,99 @@ $("#file-in").onchange = async e => {
     };
   } catch { toast("Die Datei ist kein gültiges Backup"); }
 };
+function drawSyncCard() {
+  const el = $("#sync-card"); if (!el) return;
+  if (MODE === "server") { el.innerHTML = `<div class="card-h"><h2>Sync zwischen Geräten</h2></div><div class="card-b"><p class="sub" style="margin:0">Im lokalen Server-Modus liegen die Daten in data.json. Der Sync ist für die Web-App gedacht.</p></div>`; return; }
+  if (!Sync.on()) {
+    el.innerHTML = `<div class="card-h"><h2>Sync zwischen Geräten</h2><span class="chip">aus</span></div>
+      <div class="card-b" style="display:grid;gap:12px">
+        <p class="sub" style="margin:0">Damit Laptop und iPhone dieselben Daten haben, speichert Tracky eine <b>verschlüsselte</b> Kopie in einem privaten Gist deines GitHub-Kontos. Verschlüsselt wird auf deinem Gerät mit einem Passwort, das nur du kennst. GitHub sieht nur Zeichensalat.</p>
+        <div class="actions"><button class="btn primary" type="button" id="sync-new">Auf diesem Gerät einrichten</button><button class="btn" type="button" id="sync-join">Mit anderem Gerät verbinden</button></div>
+        <p class="hint" style="margin:0">Einrichten machst du einmal auf dem Gerät mit deinen Daten (Laptop). Auf dem iPhone wählst du danach „Mit anderem Gerät verbinden“, und zwar in der installierten Tracky-App, nicht in Safari: Beide haben getrennte Speicher.</p>
+      </div>`;
+    $("#sync-new").onclick = syncSetupDialog; $("#sync-join").onclick = syncJoinDialog;
+    return;
+  }
+  el.innerHTML = `<div class="card-h"><h2>Sync zwischen Geräten</h2><span class="chip pos">aktiv</span></div>
+    <div class="card-b" style="display:grid;gap:12px">
+      <p class="sub" style="margin:0" id="sync-state"></p>
+      <div class="actions"><button class="btn" type="button" id="sync-now">${I.refresh} Jetzt synchronisieren</button><button class="btn primary" type="button" id="sync-pair">Weiteres Gerät verbinden</button><button class="btn danger" type="button" id="sync-off">Auf diesem Gerät beenden</button></div>
+    </div>`;
+  Sync.state.dirty ? Sync.status("", "Änderungen werden synchronisiert …") : Sync.showOk();
+  $("#sync-now").onclick = () => { Sync.status("", "Wird synchronisiert …"); Sync.state.dirty ? Sync.push() : Sync.pull(); };
+  $("#sync-pair").onclick = syncPairDialog;
+  $("#sync-off").onclick = () => confirmDialog("Sync auf diesem Gerät beenden?", "Deine Daten bleiben auf diesem Gerät und in der verschlüsselten Kopie erhalten. Dieses Gerät synchronisiert nur nicht mehr.", "Beenden", () => { Sync.disconnect(); drawSyncCard(); toast("Sync beendet"); });
+}
+const TOKEN_URL = "https://github.com/settings/tokens/new?scopes=gist&description=Tracky%20Sync";
+function syncSetupDialog() {
+  openDlg(`<form id="sf"><div class="dlg-h"><h2>Sync einrichten</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b">
+      <ol class="steps"><li><a class="link" href="${TOKEN_URL}" target="_blank" rel="noopener">Token bei GitHub erstellen</a>. Das Häkchen bei <b>gist</b> ist schon gesetzt. Bei „Expiration“ am besten „No expiration“ wählen, dann unten auf „Generate token“ klicken.</li>
+        <li>Den Token (beginnt mit <span class="mono">ghp_</span>) hier einfügen.</li><li>Ein Passwort für die Verschlüsselung festlegen und gut merken. Ohne Passwort kommt niemand an die Daten, auch du nicht.</li></ol>
+      <div class="field"><label for="s-t">GitHub-Token</label><input class="input mono" id="s-t" type="password" autocomplete="off" placeholder="ghp_…" required></div>
+      <div class="row2"><div class="field"><label for="s-p">Sync-Passwort</label><input class="input" id="s-p" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="field"><label for="s-p2">Passwort wiederholen</label><input class="input" id="s-p2" type="password" autocomplete="new-password" required></div></div>
+      <div id="s-msg"></div>
+    </div>
+    <div class="dlg-f"><span></span><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Einrichten</button></div></div></form>`);
+  $("#sf", dlg).onsubmit = async e => {
+    e.preventDefault();
+    const t = $("#s-t", dlg).value.trim(), p1 = $("#s-p", dlg).value, p2 = $("#s-p2", dlg).value, msg = $("#s-msg", dlg);
+    if (p1.length < 8) { msg.innerHTML = '<div class="msg">Das Passwort braucht mindestens 8 Zeichen.</div>'; return; }
+    if (p1 !== p2) { msg.innerHTML = '<div class="msg">Die Passwörter stimmen nicht überein.</div>'; return; }
+    msg.innerHTML = '<div class="msg info">Wird eingerichtet …</div>';
+    try { await Sync.create(t, p1); dlg.close(); toast("Sync eingerichtet"); go(); setTimeout(syncPairDialog, 300); }
+    catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message || "Einrichten fehlgeschlagen.")}</div>`; }
+  };
+  $("#s-t", dlg).focus();
+}
+async function syncPairDialog() {
+  const code = Sync.pairCode();
+  openDlg(`<div class="dlg-h"><h2>Weiteres Gerät verbinden</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b">
+      <ol class="steps"><li>Auf dem iPhone Tracky öffnen und zum Home-Bildschirm hinzufügen (Teilen → „Zum Home-Bildschirm“). Dann die <b>App</b> öffnen.</li>
+        <li>Diesen QR-Code mit der iPhone-Kamera scannen und den Text kopieren. Oder den Code unten kopieren und dir per AirDrop schicken.</li>
+        <li>In der App unter <b>Daten &amp; Einstellungen → Mit anderem Gerät verbinden</b> einfügen und dein Sync-Passwort eingeben.</li></ol>
+      <div style="display:grid;justify-items:center;gap:10px"><div id="qr" style="background:#fff;padding:12px;border-radius:12px;width:244px;height:244px"></div></div>
+      <div class="field"><label for="pc">Verbindungscode</label><div style="display:flex;gap:8px"><input class="input mono" id="pc" readonly value="${esc(code)}"><button class="btn" type="button" id="pc-copy">Kopieren</button></div>
+        <span class="hint">Der Code enthält den Zugang zum Speicher, aber nicht dein Passwort. Teile ihn trotzdem mit niemandem.</span></div>
+    </div>
+    <div class="dlg-f"><span></span><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
+  $("#pc-copy", dlg).onclick = e => copyText(code, e.currentTarget);
+  try {
+    await new Promise((res, rej) => { if (window.QRCode) return res(); const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = res; sc.onerror = rej; document.head.append(sc); });
+    new QRCode($("#qr", dlg), {text: code, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M});
+  } catch { $("#qr", dlg).outerHTML = '<p class="hint">QR-Code gerade nicht verfügbar. Nutze den Code darunter.</p>'; }
+}
+function syncJoinDialog() {
+  openDlg(`<form id="jf"><div class="dlg-h"><h2>Mit anderem Gerät verbinden</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b">
+      <p class="sub" style="margin:0">Den Verbindungscode findest du auf dem anderen Gerät unter <b>Daten &amp; Einstellungen → Weiteres Gerät verbinden</b>.</p>
+      <div class="field"><label for="j-c">Verbindungscode</label><input class="input mono" id="j-c" autocomplete="off" placeholder="TRACKY1:…" required></div>
+      <div class="field"><label for="j-p">Sync-Passwort</label><input class="input" id="j-p" type="password" autocomplete="current-password" required></div>
+      <div id="j-msg"></div>
+    </div>
+    <div class="dlg-f"><span></span><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Verbinden</button></div></div></form>`);
+  $("#jf", dlg).onsubmit = async e => {
+    e.preventDefault();
+    const msg = $("#j-msg", dlg);
+    msg.innerHTML = '<div class="msg info">Wird verbunden …</div>';
+    try {
+      const o = Sync.parseCode($("#j-c", dlg).value);
+      const {data, file} = await Sync.connect(o.t, o.g, $("#j-p", dlg).value);
+      const localHas = DB.snapshots.length || DB.income.entries.length || DB.income.orders.length;
+      const takeRemote = () => { dlg.close(); Sync.apply(data, Sync.state.lastRemote); toast(`Verbunden · Daten von ${file.device || "anderem Gerät"} übernommen`); };
+      if (!localHas) return takeRemote();
+      openDlg(`<div class="dlg-h"><h2>Welche Daten sollen gelten?</h2></div><div class="dlg-b"><p class="sub" style="margin:0">Auf diesem Gerät gibt es schon Daten. Normalerweise übernimmst du die Daten vom anderen Gerät.</p>
+        <div class="struct"><div class="r"><span>Dieses Gerät</span><span class="num">${DB.snapshots.length} Bewertungen · ${DB.income.entries.length + DB.income.orders.length} Einkommenseinträge</span></div>
+        <div class="r"><span>${esc(file.device || "Anderes Gerät")}</span><span class="num">${data.snapshots?.length || 0} Bewertungen · ${(data.income?.entries?.length || 0) + (data.income?.orders?.length || 0)} Einkommenseinträge</span></div></div></div>
+        <div class="dlg-f"><button class="btn" type="button" data-local>Daten dieses Geräts hochladen</button><div class="r"><button class="btn primary" type="button" data-remote>Daten vom anderen Gerät übernehmen</button></div></div>`);
+      $("[data-remote]", dlg).onclick = takeRemote;
+      $("[data-local]", dlg).onclick = () => { dlg.close(); Sync.push(true); toast("Verbunden · Daten dieses Geräts werden hochgeladen"); go(); };
+    } catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message || "Verbinden fehlgeschlagen.")}</div>`; }
+  };
+  $("#j-c", dlg).focus();
+}
 function download(name, text, type) {
   const url = URL.createObjectURL(new Blob([text], {type}));
   const a = Object.assign(document.createElement("a"), {href: url, download: name}); document.body.append(a); a.click(); a.remove();
@@ -2718,6 +2963,9 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 (async function boot() {
   await loadData();
   go(); setLiveStatus();
+  if (Sync.on()) { Sync.status("", "Sync wird geprüft …"); Sync.pull(); }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); });
+  setInterval(() => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); }, 2 * 60 * 1000);
   refreshQuotes(true);
   setInterval(() => { if (document.visibilityState === "visible") refreshQuotes(true); }, 5 * 60 * 1000);
 })();
