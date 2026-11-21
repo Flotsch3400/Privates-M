@@ -1,4 +1,4 @@
-# Vermögen – persönlicher Vermögens-Tracker
+# Tracky – Dein Vermögen. Immer im Blick.
 
 ## Starten
 - **Windows:** Doppelklick auf `Start-Windows.bat`

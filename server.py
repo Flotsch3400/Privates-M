@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Vermögen – lokaler Server.
+"""Tracky – lokaler Server.
 
 Startet die Web-App auf http://localhost:8765, speichert alle Daten in
 data.json (im selben Ordner) und holt aktuelle Kurse aus dem Internet:
@@ -25,7 +25,7 @@ PORT = int(os.environ.get("VERMOEGEN_PORT", "8765"))
 ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(ROOT, "data.json")
 BACKUPS = os.path.join(ROOT, "backups")
-UA = {"User-Agent": "Mozilla/5.0 (Vermoegen-App)", "Accept": "application/json"}
+UA = {"User-Agent": "Mozilla/5.0 (Tracky)", "Accept": "application/json"}
 LOCK = threading.Lock()
 CACHE = {}  # url -> (time, payload)
 
@@ -183,7 +183,7 @@ class Handler(SimpleHTTPRequestHandler):
 def main():
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     url = f"http://localhost:{PORT}/"
-    print(f"\n  Vermögen läuft auf {url}\n  Daten: {DATA}\n  Beenden mit Strg+C\n")
+    print(f"\n  Tracky läuft auf {url}\n  Daten: {DATA}\n  Beenden mit Strg+C\n")
     if "--no-browser" not in sys.argv:
         threading.Timer(0.8, lambda: webbrowser.open(url)).start()
     try:
