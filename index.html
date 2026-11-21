@@ -145,6 +145,11 @@ textarea.input{height:auto;min-height:150px;padding:10px 12px;resize:vertical;fo
 /* ---------- hero & KPIs ---------- */
 .hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;padding:4px 2px}
 .hero-total{font-size:clamp(38px,5.8vw,60px);font-weight:700;letter-spacing:-.04em;line-height:1.02;margin:8px 0 12px}
+.hero-row{display:flex;align-items:center;gap:12px}
+.hero-row .priv-hero{flex:none}
+body.privacy .hero-total{letter-spacing:.02em;color:var(--ink-2)}
+body.privacy input.n:not(:focus),body.privacy .cell-in:not(:focus){filter:blur(6px)}
+body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background:var(--brand-soft);color:var(--brand-ink);border-color:transparent}
 .hero-total .cents{color:var(--ink-3);font-weight:600}
 .hero-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;color:var(--ink-2);font-size:13.5px}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
@@ -463,10 +468,11 @@ html{scroll-behavior:smooth}
       <div class="status"><span class="dot" id="st-store-dot"></span><span id="st-store">Lädt …</span></div>
       <div class="status" id="st-sync-row" hidden><span class="dot" id="st-sync-dot"></span><span id="st-sync"></span></div>
       <div class="status"><span class="dot" id="st-live-dot"></span><span id="st-live">Live-Kurse: noch nicht geladen</span></div>
+      <button class="btn sm priv-side" type="button" data-priv style="justify-self:start"></button>
       <div class="seg theme-seg" role="group" aria-label="Darstellung"></div>
     </div>
   </aside>
-  <main><div class="mobile-top"><a class="brand" href="#uebersicht" style="padding:0"><svg class="logo-lockup" viewBox="0 0 239 64" height="26" role="img" aria-label="Tracky"><rect width="64" height="64" rx="15" fill="#0B0F1A"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="var(--line-2)" stroke-width="1.5" opacity=".6"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(82 50.25)" d="M1.1025181208053692 -30.03749369127517H12.17670013422819V0.0H19.722824161073827V-30.03749369127517H30.772505771812085V-36.5056H1.1025181208053692Z M33.16864515436242 0.0H40.39626394630873V-14.01423033557047C40.39626394630873 -17.909794362416108 42.576799785234904 -19.967828187919466 45.54134851006712 -19.967828187919466C46.766368644295305 -19.967828187919466 48.11389079194632 -19.86982657718121 48.65289965100672 -19.845326174496645V-25.99492724832215C48.064889986577185 -26.019427651006716 47.35437830872483 -26.04392805369128 46.52136461744967 -26.04392805369128C43.115808644295306 -26.04392805369128 41.155776429530206 -24.57390389261745 40.20026072483222 -21.462352751677855H40.12675951677853V-25.87242523489933H33.16864515436242Z M58.546162255033565 0.4410072483221477C62.5152274899329 0.4410072483221477 64.74476413422819 -1.127018523489933 66.11678668456376 -3.6505600000000005H66.21478829530201V0.0H73.27090426845638V-17.54228832214765C73.27090426845638 -23.079379328859062 69.2038374228188 -26.411434093959734 62.12322104697987 -26.411434093959734C55.01810426845638 -26.411434093959734 50.804035006711416 -23.030378523489937 50.48552977181209 -17.689290738255036H57.27214131543625C57.443644134228194 -19.673823355704698 59.207673127516784 -21.04584590604027 61.902717422818796 -21.04584590604027C64.54876091275169 -21.04584590604027 66.14128708724833 -19.722824161073827 66.14128708724833 -17.811792751677853V-17.640289932885906C66.14128708724833 -15.974262550335572 64.47525970469799 -15.753758926174498 59.74668198657719 -15.288251275167786C54.356593395973164 -14.798243221476511 49.65251608053692 -13.132215838926175 49.65251608053692 -7.301120000000001C49.65251608053692 -2.1315350335570473 53.37657728859061 0.4410072483221477 58.546162255033565 0.4410072483221477ZM60.55519527516779 -4.581575302013423C58.12965540939598 -4.581575302013423 56.5616296375839 -5.659593020134229 56.5616296375839 -7.497123221476511C56.5616296375839 -9.555157046979867 58.521661852349 -10.510672751677854 60.99620252348994 -10.87817879194631C63.3237407785235 -11.245684832214765 65.35727420134229 -11.588690469798658 66.19028789261746 -12.05419812080537V-9.457155436241612C66.19028789261746 -6.664109530201343 64.03425245637584 -4.581575302013423 60.55519527516779 -4.581575302013423Z M88.97076230872484 0.5880096644295303C95.85537546308726 0.5880096644295303 100.80445680536914 -3.7485616107382556 101.12296204026848 -9.726659865771813H94.09134646979867C93.62583881879196 -7.007115167785235 91.98431183892619 -5.243086174496645 89.0687639194631 -5.243086174496645C85.44270432214766 -5.243086174496645 83.26216848322149 -8.207634899328859 83.26216848322149 -12.911712214765101C83.26216848322149 -17.640289932885906 85.4182039194631 -20.629339060402685 89.0687639194631 -20.629339060402685C91.95981143624162 -20.629339060402685 93.77284123489935 -18.840809664429532 94.1403472751678 -16.194766174496646H101.12296204026848C100.65745438926176 -22.22186523489933 95.78187425503357 -26.460434899328863 88.97076230872484 -26.460434899328863C81.20413465771813 -26.460434899328863 75.98554888590606 -20.923343892617453 75.98554888590606 -12.911712214765101C75.98554888590606 -4.9000805369127525 81.17963425503356 0.5880096644295303 88.97076230872484 0.5880096644295303Z M103.71510464429531 0.0H110.94272343624162V-8.207634899328859L113.02525766442955 -10.510672751677854L120.64488289932888 0.0H129.09752182550338L118.43984665771814 -14.65124080536913L128.55851296644298 -25.87242523489933H120.08137363758391L111.0162246442953 -15.974262550335572H110.94272343624162V-36.5056H103.71510464429531Z M130.70964832214767 10.241168322147653H135.4872268456376C139.50529288590604 10.241168322147653 142.00433395973155 8.305636510067115 143.64586093959733 3.993565637583893L155.03854818791947 -25.87242523489933H147.54142496644297L143.18035328859062 -13.083215033557048C142.56784322147652 -11.245684832214765 142.00433395973155 -9.359153825503357 141.44082469798659 -7.497123221476511C140.90181583892618 -9.359153825503357 140.31380617449665 -11.221184429530203 139.72579651006714 -13.083215033557048L135.38922523489936 -25.87242523489933H127.81860080536914L137.76576429530203 -0.09800161073825504L137.05525261744967 1.7885293959731545C136.3692413422819 3.773062013422819 135.70773046979866 4.532574496644296 133.99270228187922 4.532574496644296H130.70964832214767Z" fill="currentColor"/></svg></a><div class="seg theme-seg" role="group" aria-label="Darstellung"></div></div><div class="wrap" id="view"></div></main>
+  <main><div class="mobile-top"><a class="brand" href="#uebersicht" style="padding:0"><svg class="logo-lockup" viewBox="0 0 239 64" height="26" role="img" aria-label="Tracky"><rect width="64" height="64" rx="15" fill="#0B0F1A"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="var(--line-2)" stroke-width="1.5" opacity=".6"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(82 50.25)" d="M1.1025181208053692 -30.03749369127517H12.17670013422819V0.0H19.722824161073827V-30.03749369127517H30.772505771812085V-36.5056H1.1025181208053692Z M33.16864515436242 0.0H40.39626394630873V-14.01423033557047C40.39626394630873 -17.909794362416108 42.576799785234904 -19.967828187919466 45.54134851006712 -19.967828187919466C46.766368644295305 -19.967828187919466 48.11389079194632 -19.86982657718121 48.65289965100672 -19.845326174496645V-25.99492724832215C48.064889986577185 -26.019427651006716 47.35437830872483 -26.04392805369128 46.52136461744967 -26.04392805369128C43.115808644295306 -26.04392805369128 41.155776429530206 -24.57390389261745 40.20026072483222 -21.462352751677855H40.12675951677853V-25.87242523489933H33.16864515436242Z M58.546162255033565 0.4410072483221477C62.5152274899329 0.4410072483221477 64.74476413422819 -1.127018523489933 66.11678668456376 -3.6505600000000005H66.21478829530201V0.0H73.27090426845638V-17.54228832214765C73.27090426845638 -23.079379328859062 69.2038374228188 -26.411434093959734 62.12322104697987 -26.411434093959734C55.01810426845638 -26.411434093959734 50.804035006711416 -23.030378523489937 50.48552977181209 -17.689290738255036H57.27214131543625C57.443644134228194 -19.673823355704698 59.207673127516784 -21.04584590604027 61.902717422818796 -21.04584590604027C64.54876091275169 -21.04584590604027 66.14128708724833 -19.722824161073827 66.14128708724833 -17.811792751677853V-17.640289932885906C66.14128708724833 -15.974262550335572 64.47525970469799 -15.753758926174498 59.74668198657719 -15.288251275167786C54.356593395973164 -14.798243221476511 49.65251608053692 -13.132215838926175 49.65251608053692 -7.301120000000001C49.65251608053692 -2.1315350335570473 53.37657728859061 0.4410072483221477 58.546162255033565 0.4410072483221477ZM60.55519527516779 -4.581575302013423C58.12965540939598 -4.581575302013423 56.5616296375839 -5.659593020134229 56.5616296375839 -7.497123221476511C56.5616296375839 -9.555157046979867 58.521661852349 -10.510672751677854 60.99620252348994 -10.87817879194631C63.3237407785235 -11.245684832214765 65.35727420134229 -11.588690469798658 66.19028789261746 -12.05419812080537V-9.457155436241612C66.19028789261746 -6.664109530201343 64.03425245637584 -4.581575302013423 60.55519527516779 -4.581575302013423Z M88.97076230872484 0.5880096644295303C95.85537546308726 0.5880096644295303 100.80445680536914 -3.7485616107382556 101.12296204026848 -9.726659865771813H94.09134646979867C93.62583881879196 -7.007115167785235 91.98431183892619 -5.243086174496645 89.0687639194631 -5.243086174496645C85.44270432214766 -5.243086174496645 83.26216848322149 -8.207634899328859 83.26216848322149 -12.911712214765101C83.26216848322149 -17.640289932885906 85.4182039194631 -20.629339060402685 89.0687639194631 -20.629339060402685C91.95981143624162 -20.629339060402685 93.77284123489935 -18.840809664429532 94.1403472751678 -16.194766174496646H101.12296204026848C100.65745438926176 -22.22186523489933 95.78187425503357 -26.460434899328863 88.97076230872484 -26.460434899328863C81.20413465771813 -26.460434899328863 75.98554888590606 -20.923343892617453 75.98554888590606 -12.911712214765101C75.98554888590606 -4.9000805369127525 81.17963425503356 0.5880096644295303 88.97076230872484 0.5880096644295303Z M103.71510464429531 0.0H110.94272343624162V-8.207634899328859L113.02525766442955 -10.510672751677854L120.64488289932888 0.0H129.09752182550338L118.43984665771814 -14.65124080536913L128.55851296644298 -25.87242523489933H120.08137363758391L111.0162246442953 -15.974262550335572H110.94272343624162V-36.5056H103.71510464429531Z M130.70964832214767 10.241168322147653H135.4872268456376C139.50529288590604 10.241168322147653 142.00433395973155 8.305636510067115 143.64586093959733 3.993565637583893L155.03854818791947 -25.87242523489933H147.54142496644297L143.18035328859062 -13.083215033557048C142.56784322147652 -11.245684832214765 142.00433395973155 -9.359153825503357 141.44082469798659 -7.497123221476511C140.90181583892618 -9.359153825503357 140.31380617449665 -11.221184429530203 139.72579651006714 -13.083215033557048L135.38922523489936 -25.87242523489933H127.81860080536914L137.76576429530203 -0.09800161073825504L137.05525261744967 1.7885293959731545C136.3692413422819 3.773062013422819 135.70773046979866 4.532574496644296 133.99270228187922 4.532574496644296H130.70964832214767Z" fill="currentColor"/></svg></a><div class="actions" style="gap:6px;flex-wrap:nowrap"><button class="btn icon sm" type="button" data-priv></button><div class="seg theme-seg" role="group" aria-label="Darstellung"></div></div></div><div class="wrap" id="view"></div></main>
   <nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
 </div>
 <dialog id="dlg"></dialog>
@@ -487,13 +493,18 @@ const fmtQ = new Intl.NumberFormat("de-DE", {maximumFractionDigits: 8});
 const fmtPx = v => new Intl.NumberFormat("de-DE", {minimumFractionDigits: 2, maximumFractionDigits: Math.abs(v) < 1 ? 6 : 2}).format(v);
 const fmtP = new Intl.NumberFormat(LOCALE, {style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "exceptZero"});
 const fmtPs = new Intl.NumberFormat(LOCALE, {style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 1});
-const eur = v => fmtE.format(v || 0);
-const eur0 = v => fmtE0.format(v || 0);
-const sEur = v => (v > 0.004 ? "+" : v < -0.004 ? "−" : "±") + fmtE.format(Math.abs(v || 0));
-const sEur0 = v => (v >= 0.5 ? "+" : v <= -0.5 ? "−" : "±") + fmtE0.format(Math.abs(v || 0));
+/* Privacy mode: every euro amount is replaced by the same placeholder, so no length or magnitude shows. */
+let PRIV = false;
+const MASK = "€ •••••";
+const eur = v => PRIV ? MASK : fmtE.format(v || 0);
+const eur0 = v => PRIV ? MASK : fmtE0.format(v || 0);
+const sEur = v => (v > 0.004 ? "+" : v < -0.004 ? "−" : "±") + (PRIV ? "€ •••" : fmtE.format(Math.abs(v || 0)));
+const sEur0 = v => (v >= 0.5 ? "+" : v <= -0.5 ? "−" : "±") + (PRIV ? "€ •••" : fmtE0.format(Math.abs(v || 0)));
+const qtyTxt = v => PRIV ? "•••" : fmtQ.format(v);
 const pct = v => isFinite(v) ? fmtP.format(v).replace("-", "−") : "–";
 const cls = v => v > 0.004 ? "pos" : v < -0.004 ? "neg" : "";
 const compact = v => {
+  if (PRIV) return "";
   const a = Math.abs(v);
   if (a >= 1e6) return (v / 1e6).toLocaleString(LOCALE, {maximumFractionDigits: 1}) + " Mio";
   if (a >= 1e3) return (v / 1e3).toLocaleString(LOCALE, {maximumFractionDigits: 0}) + " Tsd";
@@ -518,6 +529,7 @@ function parseNum(str) {
   catch { return NaN; }
 }
 const okNum = v => v != null && !Number.isNaN(v);
+const heroHTML = v => { if (PRIV) return MASK; const [w, c] = fmtE.format(v || 0).split(","); return `${esc(w)}<span class="cents">,${esc(c || "00")}</span>`; };
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
@@ -571,6 +583,8 @@ I.utensils = svg('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 
 I.percent = svg('<line x1="19" x2="5" y1="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>');
 I.tag = svg('<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>');
 I.landmark = svg('<line x1="3" x2="21" y1="22" y2="22"/><line x1="6" x2="6" y1="18" y2="11"/><line x1="10" x2="10" y1="18" y2="11"/><line x1="14" x2="14" y1="18" y2="11"/><line x1="18" x2="18" y1="18" y2="11"/><polygon points="12 2 20 7 4 7"/>');
+I.eye = svg('<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>');
+I.eyeOff = svg('<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>');
 I.camera = svg('<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>');
 I.chevLeft = svg('<path d="m15 18-6-6 6-6"/>');
 I.chevRight = svg('<path d="m9 18 6-6-6-6"/>');
@@ -1172,17 +1186,18 @@ function renderNav() {
   };
 }
 const VIEWS = {};
-function go() {
+function go(keep) {
   const h = location.hash.replace("#", "");
   route = NAV.some(n => n[0] === h) ? h : "uebersicht";
   if (route !== "bewertung") editId = null;
   if (dlg.open) dlg.close();
   renderNav(); onQuotes = () => {}; resizeFns = [];
   const v = $("#view"); v.innerHTML = "";
-  animateCharts = !reduced(); clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
+  animateCharts = !reduced() && !keep; clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
   VIEWS[route](v);
-  v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter");
-  window.scrollTo(0, 0);
+  if (!keep) { v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); }
+  paintPriv();
+  if (!keep) window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", go);
 let rzT; window.addEventListener("resize", () => { clearTimeout(rzT); rzT = setTimeout(() => resizeFns.forEach(f => f()), 120); });
@@ -1283,7 +1298,6 @@ VIEWS.uebersicht = v => {
   const ytdBase = [...S].reverse().find(s => s.date < L.date.slice(0, 4) + "-01-01");
   const y1 = snapAtOrBefore(addMonths(L.date, -12));
   const ct = catTotals(L), pct_ = catTotals(P);
-  const [whole, cents] = eur(tot).split(",");
   const {a: assets, l: liab} = assetsLiab(L);
   const isAth = tot >= H.v - 0.005;
   const remind = backupDue() ? `<div class="msg msg-row"><span>Deine Daten liegen nur in diesem Browser. Lade ein Backup herunter, damit nichts verloren geht.</span><a class="btn sm" href="#daten">${I.download} Zum Backup</a></div>` : "";
@@ -1293,7 +1307,7 @@ VIEWS.uebersicht = v => {
     <section class="hero">
       <div>
         <div class="eyebrow">Nettovermögen · Stichtag ${fmtDateL(L.date)}</div>
-        <div class="hero-total num">${esc(whole)}<span class="cents">,${esc(cents)}</span></div>
+        <div class="hero-row"><div class="hero-total num">${heroHTML(tot)}</div>${privBtn()}</div>
         <div class="hero-meta">
           ${P ? `<span class="chip ${cls(tot - ptot)}">${sEur(tot - ptot)} · ${pct(tot / ptot - 1)}</span><span>seit ${fmtDate(P.date)}</span>` : ""}
           <span class="chip ${isAth ? "pos" : ""}">${isAth ? I.trophy + " Allzeithoch" : `${pct(tot / H.v - 1)} unter dem Hoch vom ${fmtDate(H.d)}`}</span>
@@ -1448,7 +1462,7 @@ VIEWS.uebersicht = v => {
   };
   paintLive(); onQuotes = paintLive;
   $("#btn-q")?.addEventListener("click", () => refreshQuotes(false));
-  if (!countedUp && !reduced()) {
+  if (!countedUp && !reduced() && !PRIV) {
     countedUp = true;
     const el = $(".hero-total"), t0 = performance.now(), from = tot * .96;
     const step = t => { const k = Math.min(1, (t - t0) / 650), e = 1 - Math.pow(1 - k, 3), [w, c] = eur(from + (tot - from) * e).split(",");
@@ -1457,6 +1471,22 @@ VIEWS.uebersicht = v => {
   }
 };
 let countedUp = false;
+const privBtn = () => `<button class="btn icon priv-hero" type="button" data-priv></button>`;
+/** Fills every privacy toggle with the right icon and label and wires the click. */
+function paintPriv() {
+  document.body.classList.toggle("privacy", PRIV);
+  $$("[data-priv]").forEach(b => {
+    const side = b.classList.contains("priv-side");
+    b.innerHTML = (PRIV ? I.eyeOff : I.eye) + (side ? `<span>${PRIV ? "Beträge einblenden" : "Beträge ausblenden"}</span>` : "");
+    b.title = PRIV ? "Beträge einblenden" : "Beträge ausblenden"; b.setAttribute("aria-label", b.title); b.setAttribute("aria-pressed", PRIV);
+    b.onclick = togglePriv;
+  });
+}
+function togglePriv() {
+  PRIV = !PRIV; store.set("privacy", PRIV); countedUp = true;
+  const y = window.scrollY; go(true); window.scrollTo(0, y);
+  toast(PRIV ? "Beträge ausgeblendet" : "Beträge eingeblendet");
+}
 const kpi = (l, val, d, icon) => `<div class="kpi"><div class="kh">${icon ? `<span class="kic">${icon}</span>` : ""}<span class="eyebrow">${l}</span></div><div class="v num">${val}</div><div class="d num">${d}</div></div>`;
 
 /* ================= View: Bewertung ================= */
@@ -1622,7 +1652,7 @@ VIEWS.depot = v => {
         <div class="h-row h"><span>Position</span><span class="hide-sm">Stück</span><span class="hide-sm">Kurs</span><span class="hide-sm">Heute</span><span>Wert</span></div>
         ${a.holdings.map(h => { const x = hVal(h); return `<div class="h-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0">
           <span class="nm with-logo">${holdingLogo(h, "lg")}<span><b><span class="type-badge">${{stock: "Wertpapier", crypto: "Krypto", metal: "Metall", wallet: "Wallet"}[h.type]}</span>${esc(h.name || h.symbol)}</b><small>${esc(h.type === "wallet" ? CHAINS[h.chain]?.name + " · " + h.address.slice(0, 6) + "…" + h.address.slice(-4) : [h.symbol, h.isin].filter(Boolean).join(" · "))}${x.err && !x.fresh ? ` · <span class="neg">${esc(x.err)}</span>` : ""}</small></span></span>
-          <span class="hide-sm num">${fmtQ.format(x.qty)}${h.type === "metal" ? " oz" : ""}</span>
+          <span class="hide-sm num">${qtyTxt(x.qty)}${h.type === "metal" ? " oz" : ""}</span>
           <span class="hide-sm num">${x.price != null ? fmtPx(x.price) + " €" : "–"}</span>
           <span class="hide-sm num ${cls(x.change || 0)}">${x.change != null ? pct(x.change) : x.fresh ? "–" : '<span class="muted">alt</span>'}</span>
           <span class="num">${x.value != null ? eur(x.value) : "–"}</span></div>`; }).join("")}
@@ -1664,7 +1694,7 @@ function catView(v, key) {
     <section class="hero">
       <div>
         <div class="eyebrow inl" style="gap:8px">${catChip(key, "sm")}${esc(label)} · Stichtag ${fmtDateL(L.date)}</div>
-        <div class="hero-total num">${esc(eur(val).split(",")[0])}<span class="cents">,${esc(eur(val).split(",")[1] || "00")}</span></div>
+        <div class="hero-row"><div class="hero-total num">${heroHTML(val)}</div>${privBtn()}</div>
         <div class="hero-meta">
           ${P ? `<span class="chip ${cls(val - pv)}">${sEur(val - pv)}${pv ? " · " + pct(val / pv - 1) : ""}</span><span>seit ${fmtDate(P.date)}</span>` : ""}
           <span class="chip ${val >= peak - .005 ? "pos" : ""}">${val >= peak - .005 ? I.trophy + " Höchststand" : `${pct(val / peak - 1)} unter dem Höchststand`}</span>
@@ -1748,7 +1778,7 @@ function catView(v, key) {
       (rows.length ? `<div style="margin-top:10px"><div class="h-row h"><span>Position</span><span class="hide-sm">Stück</span><span class="hide-sm">Kurs</span><span class="hide-sm">Heute</span><span>Wert</span></div>` +
         rows.sort((x, y) => (y.value || 0) - (x.value || 0)).map(r => `<div class="h-row" data-h="${r.h.id}" data-a="${r.a.id}" role="button" tabindex="0">
           <span class="nm with-logo">${holdingLogo(r.h, "lg")}<span><b>${esc(r.h.name || r.h.symbol)}</b><small>${esc(r.a.name)}${r.h.symbol && r.h.type !== "wallet" ? " · " + esc(isAddr(r.h.symbol) ? r.h.symbol.slice(0, 6) + "…" : r.h.symbol) : ""}</small></span></span>
-          <span class="hide-sm num">${fmtQ.format(r.qty)}</span><span class="hide-sm num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</span>
+          <span class="hide-sm num">${qtyTxt(r.qty)}</span><span class="hide-sm num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</span>
           <span class="hide-sm num ${cls(r.change || 0)}">${r.change != null ? pct(r.change) : '<span class="muted">–</span>'}</span><span class="num">${r.value != null ? eur(r.value) : "–"}</span></div>`).join("") + "</div>"
         : `<div class="card-b"><p class="sub" style="margin:0">${key === "krypto" ? "Noch keine Coins mit Live-Kurs." : "Noch keine Aktien oder ETFs mit Live-Kurs. Füge deine Depot-Positionen hinzu oder kopiere die Bestandsliste aus dem Onlinebanking."}</p></div>`) +
       (sug ? `<div class="card-b" style="padding-top:12px"><div class="msg info msg-row"><span>${sug} ${sug > 1 ? "Krypto-Konten können" : "Krypto-Konto kann"} live bewertet werden.</span><a class="btn sm" href="#depot">${I.refresh} Live bewerten</a></div></div>` : "") +
@@ -3100,6 +3130,7 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
 }
 (async function boot() {
+  PRIV = !!store.get("privacy", false);
   await loadData();
   go(); setLiveStatus();
   if (Sync.on()) { Sync.status("", "Sync wird geprüft …"); Sync.pull(); }
