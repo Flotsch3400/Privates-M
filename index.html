@@ -569,6 +569,7 @@ function migrate() {
   inc.entries ||= []; inc.orders ||= []; inc.deals ||= []; inc.settings ||= {};
   if (inc.settings.discount == null) inc.settings.discount = 0.1;
   inc.settings.employer ??= "";
+  inc.settings.sourceDomains ||= {};
   inc.settings.sources ||= {}; inc.settings.sources.cashback ||= []; inc.settings.sources.zinsen ||= []; inc.settings.sources.sonstiges ||= [];
   DB.version = 2;
 }
@@ -1611,6 +1612,8 @@ function incomeItems() {
 const sumBy = (items, f) => items.reduce((m, x) => (m[f(x)] = (m[f(x)] || 0) + x.amount, m), {});
 function sourceLogo(name, size = "sm") {
   const n = (name || "").toLowerCase();
+  const own = Object.entries(DB.income?.settings?.sourceDomains || {}).find(([k]) => k.toLowerCase() === n)?.[1];
+  if (own) return logoBox(favicon(own), name, size);
   const a = DB.accounts.find(x => x.domain && ((x.provider || "").toLowerCase() === n || x.name.toLowerCase() === n)) ||
     DB.accounts.find(x => x.domain && (x.name.toLowerCase().startsWith(n + " ") || n.startsWith((x.provider || x.name).toLowerCase()))) ||
     (n.length >= 4 ? DB.accounts.find(x => x.domain && x.name.toLowerCase().split(/\s+/).includes(n)) : null);
@@ -2343,6 +2346,7 @@ VIEWS.planung = v => {
 /* ================= View: Daten ================= */
 VIEWS.daten = v => {
   v.innerHTML = `<div class="head"><div><h1>Daten & Einstellungen</h1><p>Darstellung wählen und Daten sichern. ${MODE === "server" ? "Der Server legt zusätzlich jeden Tag eine Sicherung im Ordner „backups“ an." : ""}</p></div></div>
+    <div class="card"><div class="card-h"><h2>Einkommensquellen</h2><span class="muted" style="font-size:12.5px">Webseite eintragen, dann erscheint das Logo</span></div><div class="card-b" id="src-list"></div></div>
     <div class="card"><div class="card-h"><h2>Darstellung</h2></div><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <span class="sub">Hell, dunkel oder wie dein Gerät eingestellt ist. Die Auswahl bleibt gespeichert.</span><div class="seg theme-seg" data-labels="1" role="group" aria-label="Darstellung"></div></div></div>
     <div class="grid-2e">
@@ -2359,6 +2363,26 @@ VIEWS.daten = v => {
       </div></div>
     </div>`;
   applyTheme();
+  const drawSources = () => {
+    const st = DB.income.settings, groups = [["gehalt", st.employer ? [st.employer] : []], ["zinsen", knownSources("zinsen").map(x => x.name)], ["cashback", knownSources("cashback").map(x => x.name)], ["sonstiges", knownSources("sonstiges").map(x => x.name)]];
+    $("#src-list").innerHTML = groups.filter(([, l]) => l.length).map(([ty, list]) => `<div class="eyebrow inl" style="gap:8px;margin:10px 0 6px">${typeIc(ty)}${INC_TYPES[ty].label}</div>` +
+      list.map(nm => `<div class="m-row" style="grid-template-columns:minmax(0,1fr) minmax(0,220px) 30px"><span class="with-logo" data-logo="${esc(nm)}">${sourceLogo(nm)}<span>${esc(nm)}</span></span>
+        <input class="input sm" data-dom="${esc(nm)}" value="${esc(st.sourceDomains[nm] || "")}" placeholder="${esc(decodeURIComponent((sourceLogo(nm).match(/domain=([^&"]+)/) || [])[1] || "") || "z. B. firma.at")}" aria-label="Webseite ${esc(nm)}" spellcheck="false" autocomplete="off">
+        ${ty === "gehalt" ? "<span></span>" : `<button class="btn ghost sm icon" type="button" data-rmsrc="${ty}|${esc(nm)}" aria-label="${esc(nm)} aus der Liste entfernen" title="Aus der Liste entfernen">${I.x}</button>`}</div>`).join("")).join("")
+      || '<p class="muted" style="margin:0">Noch keine Quellen. Sie entstehen automatisch, sobald du Gehalt, Zinsen oder Cashback erfasst.</p>';
+    $$("[data-dom]").forEach(inp => inp.onchange = () => {
+      const nm = inp.dataset.dom, d = cleanDomain(inp.value);
+      if (d) st.sourceDomains[nm] = d; else delete st.sourceDomains[nm];
+      save(); $(`[data-logo="${CSS.escape(nm)}"]`).innerHTML = sourceLogo(nm) + `<span>${esc(nm)}</span>`; toast(d ? `Logo für ${nm} gespeichert` : "Webseite entfernt");
+    });
+    $$("[data-rmsrc]").forEach(b => b.onclick = () => {
+      const [ty, nm] = b.dataset.rmsrc.split("|");
+      st.sources[ty] = (st.sources[ty] || []).filter(x => x !== nm);
+      const used = DB.income.entries.some(e => e.type === ty && e.source === nm);
+      toast(used ? `${nm} hat noch Einträge und bleibt deshalb in der Liste` : `${nm} entfernt`); drawSources();
+    });
+  };
+  drawSources();
   $("#d-exp").onclick = () => { download(`tracky-backup-${todayISO()}.json`, JSON.stringify(DB, null, 1), "application/json"); store.set("last-backup", new Date().toISOString()); setStoreStatus(); };
   $("#d-imp").onclick = () => $("#file-in").click();
   $("#d-reset").onclick = () => confirmDialog("Alle Daten löschen?", "Konten, Positionen und Bewertungen werden entfernt. Lade vorher ein Backup herunter.", "Endgültig löschen", () => { DB = emptyDB(); migrate(); save(true); go(); });
@@ -2389,6 +2413,7 @@ $("#file-in").onchange = async e => {
         const ls = DB.income.settings;
         if (fs.employer && !ls.employer) ls.employer = fs.employer;
         Object.entries(fs.sources || {}).forEach(([ty, list]) => (list || []).forEach(nm => rememberSource(ty, nm)));
+        Object.entries(fs.sourceDomains || {}).forEach(([k, d]) => { if (!ls.sourceDomains[k]) ls.sourceDomains[k] = d; });
       }
       save(true); dlg.close(); toast(`${n} Konto${n === 1 ? "" : "en"} aktualisiert`); go(); refreshQuotes(true);
     };
