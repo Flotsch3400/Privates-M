@@ -316,6 +316,21 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .calc .r{display:flex;justify-content:space-between;gap:12px}
 .calc .r.total{border-top:1px solid var(--line-2);padding-top:6px;font-weight:700}
 .bars svg{display:block;width:100%;height:100%}
+.code.paid{background:var(--pos-bg);color:var(--pos);border-color:transparent;text-decoration:line-through}
+.p-row{display:grid;grid-template-columns:92px minmax(0,1fr) 110px 30px;gap:8px;align-items:center}
+.p-owes{text-align:right;font-size:12.5px}
+.msg-line{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s)}
+.msg-line.is-paid{opacity:.55}
+.msg-line.is-paid .msg-text{text-decoration:line-through}
+.msg-text{overflow-wrap:anywhere}
+.debt{border-top:1px solid var(--line);padding:12px 0;display:grid;gap:8px}
+.debt:first-child{border-top:0;padding-top:0}
+.debt-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13.5px}
+.stat-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stat{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-s);display:grid;gap:2px;min-width:0}
+.stat b{font-size:19px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stat span{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width: 760px){ .p-row{grid-template-columns:72px minmax(0,1fr) 30px} .p-row .p-owes{grid-column:1/-1;text-align:left;margin-top:-4px} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1080px){
@@ -480,6 +495,7 @@ const NAV = [
   ["aktien", "Aktien & ETFs", I.trendingUp, "Aktien", "Vermögen", true],
   ["krypto", "Krypto", I.bitcoin, "Krypto", "Vermögen", true],
   ["einkommen", "Einkommen", I.banknote, "Einkommen", "Vermögen", true],
+  ["lieferando", "Lieferando", I.utensils, "Lieferando", "Vermögen", true],
   ["planung", "Ziele & Planung", I.target, "Ziele", "Vermögen", false],
   ["bewertung", "Neue Bewertung", I.plusCircle, "Bewerten", "Verwalten", false],
   ["depot", "Depot & Kurse", I.chartCombined, "Depot", "Verwalten", false],
@@ -1515,12 +1531,43 @@ const typeIc = t => `<span class="type-ic" style="--tc:${INC_TYPES[t].color}" ar
 const monthOf = d => (d || "").slice(0, 7);
 const monthLabel = m => parseD(m + "-01").toLocaleDateString(LOCALE, {month: "long", year: "numeric"});
 const shiftMonth = (m, k) => addMonths(m + "-01", k).slice(0, 7);
+/** Order maths. New orders: own food + each colleague's food + delivery fee, fee split evenly across everyone (you included).
+    Older orders (total + own, optional amounts per person) keep their original calculation. */
+const isNewOrder = o => o.fee != null || (o.participants || []).some(x => x.food != null);
 const orderCalc = o => {
-  const B = +o.total || 0, E = Math.min(+o.own || 0, B), d = +o.discount || 0;
-  const fromColleagues = (o.participants || []).some(x => x.amount != null) ? (o.participants || []).reduce((t, x) => t + (+x.amount || 0), 0) : B - E;
-  const cost = B * (1 - d);
-  return {B, E, d, fromColleagues, cost, profit: fromColleagues - (cost - E * (1 - d)), saving: E * d};
+  const d = +o.discount || 0, ps = o.participants || [];
+  if (isNewOrder(o)) {
+    const fee = +o.fee || 0, n = ps.length + 1, feeShare = fee / n, E = +o.own || 0;
+    const owes = ps.map(x => round2((+x.food || 0) + feeShare));
+    const B = round2(E + ps.reduce((t, x) => t + (+x.food || 0), 0) + fee);
+    const myShare = E + feeShare, fromColleagues = owes.reduce((a, b) => a + b, 0), cost = B * (1 - d);
+    return {B, E, d, fee, feeShare, owes, myShare, fromColleagues, cost, profit: fromColleagues - (cost - myShare * (1 - d)), saving: myShare * d};
+  }
+  const B = +o.total || 0, E = Math.min(+o.own || 0, B);
+  const owes = ps.map(x => x.amount != null ? +x.amount : ps.length ? round2((B - E) / ps.length) : 0);
+  const fromColleagues = ps.some(x => x.amount != null) ? owes.reduce((a, b) => a + b, 0) : B - E, cost = B * (1 - d);
+  return {B, E, d, fee: 0, feeShare: 0, owes, myShare: E, fromColleagues, cost, profit: fromColleagues - (cost - E * (1 - d)), saving: E * d};
 };
+const eurPlain = v => fmtN.format(v || 0) + " €";
+const payText = (amount, restaurant) => `Bitte ${eurPlain(amount)} überweisen${restaurant ? ` (${restaurant})` : ""}`;
+/** Everything colleagues still owe: [{code, items: [{o, i, amount}], sum}] */
+function openDebts() {
+  const by = {};
+  DB.income.orders.forEach(o => { const c = orderCalc(o); (o.participants || []).forEach((x, i) => { if (x.paid) return; (by[x.code] ||= []).push({o, i, amount: c.owes[i]}); }); });
+  return Object.entries(by).map(([code, items]) => ({code, items: items.sort((a, b) => a.o.date.localeCompare(b.o.date)), sum: items.reduce((t, x) => t + x.amount, 0)})).sort((a, b) => b.sum - a.sum);
+}
+async function copyText(text, btn) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; }
+  catch {
+    const ta = Object.assign(document.createElement("textarea"), {value: text}); ta.style.position = "fixed"; ta.style.opacity = "0";
+    (dlg.open ? dlg : document.body).append(ta); ta.select();
+    try { ok = document.execCommand("copy"); } catch {}
+    ta.remove();
+  }
+  toast(ok ? "Text kopiert, jetzt in Teams einfügen" : "Kopieren nicht möglich. Bitte Text markieren und kopieren.");
+  if (ok && btn) { const t = btn.innerHTML; btn.innerHTML = "Kopiert ✓"; setTimeout(() => btn.innerHTML = t, 1500); }
+}
 const dealProfit = x => (+x.sellPrice || 0) - (+x.buyPrice || 0) - (+x.fees || 0);
 /** All income items as one list: {type, date, amount, source, ref}. */
 function incomeItems() {
@@ -1625,9 +1672,11 @@ VIEWS.einkommen = v => {
     // Lieferando
     const ords = DB.income.orders.filter(o => monthOf(o.date) === M).sort((a, b) => b.date.localeCompare(a.date));
     const oc = ords.map(orderCalc), oProfit = oc.reduce((t, x) => t + x.profit, 0), oSave = oc.reduce((t, x) => t + x.saving, 0), oTurn = oc.reduce((t, x) => t + x.B, 0);
-    const people = {}; ords.forEach(o => { const c = orderCalc(o), n = (o.participants || []).length; (o.participants || []).forEach(x => { const pp = people[x.code] ||= {n: 0, amt: 0}; pp.n++; pp.amt += x.amount != null ? +x.amount : n ? c.fromColleagues / n : 0; }); });
-    $("#inc-lief").innerHTML = `<div class="card-h"><h2 class="inl">${typeIc("lieferando")} Lieferando im ${monthLabel(M).split(" ")[0]}</h2><span class="muted" style="font-size:12.5px">Rabatt ${fmtPs.format(DB.income.settings.discount)}</span></div>
+    const people = {}; ords.forEach(o => { const c = orderCalc(o); (o.participants || []).forEach((x, i) => { const pp = people[x.code] ||= {n: 0, amt: 0}; pp.n++; pp.amt += c.owes[i]; }); });
+    const debts = openDebts(), openSum = debts.reduce((t, x) => t + x.sum, 0);
+    $("#inc-lief").innerHTML = `<div class="card-h"><h2 class="inl">${typeIc("lieferando")} Lieferando im ${monthLabel(M).split(" ")[0]}</h2><a class="btn sm" href="#lieferando">Öffnen ${I.chevRight}</a></div>
       <div class="card-b" style="display:grid;gap:12px">
+        ${openSum > 0 ? `<a class="msg msg-row" href="#lieferando" style="text-decoration:none"><span>Noch offen: <b class="num">${eur(openSum)}</b> von ${debts.length} Kolleg${debts.length === 1 ? "e" : "en"}</span>${I.chevRight}</a>` : ""}
         <div class="struct"><div class="r"><span>Bestellungen</span><b class="num">${ords.length}</b></div><div class="r"><span>Bestellwert</span><span class="num">${eur(oTurn)}</span></div>
         <div class="r"><span>Ersparnis beim eigenen Essen</span><span class="num">${eur(oSave)}</span></div><div class="r total"><span>Gewinn durch Mitbesteller</span><span class="num pos">${eur(oProfit)}</span></div></div>
         ${Object.keys(people).length ? `<div><div class="eyebrow" style="margin-bottom:6px">Mitbesteller</div>${Object.entries(people).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => `<div class="split" style="padding:4px 0"><span class="code">${esc(c)}</span><span class="muted num">${x.n}× · ${eur(x.amt)}</span></div>`).join("")}</div>` : ""}
@@ -1644,7 +1693,7 @@ VIEWS.einkommen = v => {
     const list = inM.filter(x => incFilter === "alle" || x.type === incFilter);
     $("#inc-list").innerHTML = list.length ? `<thead><tr><th>Datum</th><th>Art</th><th>Quelle</th><th>Details</th><th class="n">Betrag</th></tr></thead><tbody>` + list.map((x, i) => `<tr class="click" data-i="${i}"><td class="num">${fmtDate(x.date)}</td>
       <td><span class="inl">${typeIc(x.type)}${INC_TYPES[x.type].label}</span></td><td><span class="with-logo">${sourceLogo(x.kind === "order" ? "Lieferando" : x.source)}<span>${esc(x.source || "–")}</span></span></td>
-      <td style="white-space:normal">${x.kind === "order" ? `<span class="codes">${(x.ref.participants || []).map(z => `<span class="code">${esc(z.code)}</span>`).join("")}</span> <span class="muted">${eur(x.ref.total)}</span>` : esc(x.note)}</td>
+      <td style="white-space:normal">${x.kind === "order" ? `<span class="codes">${(x.ref.participants || []).map(z => `<span class="code ${z.paid ? "paid" : ""}">${esc(z.code)}</span>`).join("")}</span> <span class="muted">${eur(orderCalc(x.ref).B)}</span>` : esc(x.note)}</td>
       <td class="n ${cls(x.amount)}"><b>${sEur(x.amount)}</b></td></tr>`).join("") + `</tbody>`
       : `<tbody><tr><td class="muted">Keine Einträge.</td></tr></tbody>`;
     $$("#inc-list tr[data-i]").forEach(r => r.onclick = () => { const x = list[+r.dataset.i]; x.kind === "order" ? orderDialog(x.ref, render) : x.kind === "deal" ? dealDialog(x.ref, render) : entryDialog(x.ref.type, x.ref, render); });
@@ -1684,54 +1733,227 @@ function entryDialog(type, e, done) {
   };
   $("#e-a", dlg).focus();
 }
-const parseCodes = str => String(str || "").toUpperCase().split(/[\s;]+/).flatMap(t => /[:=]/.test(t) ? [t] : t.split(",")).filter(Boolean).map(tok => {
-  const m = tok.match(/^([A-ZÄÖÜ]{2,4})(?::|=)?([\d.,]+)?$/);
-  return m ? {code: m[1], amount: m[2] ? parseNum(m[2]) : null} : null;
-});
 function orderDialog(o, done) {
   const isNew = !o, S_ = DB.income.settings;
   const restaurants = uniqVals(DB.income.orders.map(x => x.restaurant));
-  const knownCodes = uniqVals(DB.income.orders.flatMap(x => (x.participants || []).map(z => z.code)));
-  const codesStr = o ? (o.participants || []).map(z => z.code + (z.amount != null ? ":" + fmtN.format(z.amount) : "")).join(" ") : "";
+  const known = Object.entries(DB.income.orders.flatMap(x => x.participants || []).reduce((m, z) => (m[z.code] = (m[z.code] || 0) + 1, m), {})).sort((a, b) => b[1] - a[1]).map(x => x[0]).slice(0, 14);
+  const legacy = o && !isNewOrder(o);
+  const rows = o ? (o.participants || []).map((z, i) => ({code: z.code, food: z.food ?? (legacy ? orderCalc(o).owes[i] : null), paid: !!z.paid, paidAt: z.paidAt})) : [];
+  const lastFee = DB.income.orders.filter(isNewOrder).sort((a, b) => b.date.localeCompare(a.date))[0]?.fee;
   openDlg(`<form id="of"><div class="dlg-h"><h2 class="inl">${typeIc("lieferando")}${isNew ? "Lieferando-Bestellung" : "Bestellung bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <div class="row2"><div class="field"><label for="o-d">Datum</label><input class="input" type="date" id="o-d" value="${o?.date || defaultDate()}"></div>
         <div class="field"><label for="o-r">Restaurant</label><input class="input" id="o-r" list="o-rl" value="${esc(o?.restaurant || "")}" placeholder="Wo bestellt?"><datalist id="o-rl">${restaurants.map(x => `<option value="${esc(x)}">`).join("")}</datalist></div></div>
-      <div class="row3"><div class="field"><label for="o-b">Bestellbetrag gesamt</label><input class="input n" id="o-b" inputmode="decimal" value="${o ? fmtN.format(o.total) : ""}" placeholder="inkl. Liefergebühr"></div>
-        <div class="field"><label for="o-e">Davon mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own) : ""}" placeholder="0,00"></div>
-        <div class="field"><label for="o-p">Rabatt aufs Guthaben</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}" placeholder="z. B. 10"></div></div>
-      <div class="field"><label for="o-c">Mitbesteller (Kürzel)</label><input class="input mono" id="o-c" value="${esc(codesStr)}" placeholder="z. B. ABC DEF GHI" autocomplete="off" spellcheck="false">
-        <span class="hint">Kürzel mit Leerzeichen trennen. Optional mit Betrag, z. B. <span class="mono">ABC:12,50</span>. Ohne Beträge zählt: Bestellbetrag minus dein Essen.${knownCodes.length ? ` Bisher: ${knownCodes.map(c => `<button type="button" class="code" data-code="${esc(c)}" style="cursor:pointer">${esc(c)}</button>`).join(" ")}` : ""}</span></div>
+      <div class="row3"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
+        <div class="field"><label for="o-f">Liefergebühr</label><input class="input n" id="o-f" inputmode="decimal" value="${o ? fmtN.format(o.fee ?? 0) : lastFee != null ? fmtN.format(lastFee) : ""}" placeholder="0,00"></div>
+        <div class="field"><label for="o-p">Rabatt Guthaben %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
+      <div class="field"><span class="lbl">Mitbesteller</span>
+        <div id="o-rows" style="display:grid;gap:6px"></div>
+        <div class="actions" style="margin-top:4px"><button class="btn sm" type="button" id="o-add">${I.plus} Person</button>${known.map(c => `<button type="button" class="code" data-code="${esc(c)}" style="cursor:pointer">${esc(c)}</button>`).join("")}</div>
+        <span class="hint">Kürzel (3 Buchstaben) und Preis des Essens. Die Liefergebühr wird durch alle Besteller geteilt, dich eingeschlossen. Enter springt zur nächsten Person.</span></div>
+      ${legacy ? '<div class="msg info">Diese Bestellung wurde noch mit dem Gesamtbetrag erfasst. Beim Speichern wird sie auf Essen pro Person umgestellt.</div>' : ""}
       <div class="calc" id="o-calc" aria-live="polite"></div>
     </div>
-    <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Löschen</button>' : ""}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div></form>`);
-  const read = () => ({date: $("#o-d", dlg).value, restaurant: $("#o-r", dlg).value.trim(), total: parseNum($("#o-b", dlg).value) || 0, own: parseNum($("#o-e", dlg).value) || 0,
-    discount: (parseNum($("#o-p", dlg).value) || 0) / 100, participants: parseCodes($("#o-c", dlg).value).filter(Boolean)});
-  const calc = () => {
-    const r = read(), c = orderCalc(r), bad = parseCodes($("#o-c", dlg).value).some(x => !x);
-    $("#o-calc", dlg).innerHTML = `<div class="r"><span>Echte Kosten (Guthaben mit ${fmtPs.format(c.d)} Rabatt)</span><span class="num">${eur(c.cost)}</span></div>
-      <div class="r"><span>Von Kollegen bekommen${r.participants.length ? ` (${r.participants.length})` : ""}</span><span class="num">${eur(c.fromColleagues)}</span></div>
-      <div class="r"><span>Ersparnis beim eigenen Essen</span><span class="num">${eur(c.saving)}</span></div>
-      <div class="r total"><span>Gewinn mit dieser Bestellung</span><span class="num ${cls(c.profit)}">${sEur(c.profit)}</span></div>
-      ${bad ? '<span class="neg" style="font-size:12.5px">Kürzel bitte als 2–4 Buchstaben, z. B. ABC oder ABC:12,50.</span>' : ""}
-      ${r.own > r.total ? '<span class="neg" style="font-size:12.5px">Dein Essen ist höher als der Bestellbetrag.</span>' : ""}`;
+    <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Löschen</button>' : ""}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">${isNew ? "Speichern & Texte" : "Speichern"}</button></div></div></form>`, true);
+  const box = $("#o-rows", dlg);
+  const drawRows = focusLast => {
+    box.innerHTML = rows.map((r, i) => `<div class="p-row" data-i="${i}"><input class="input mono" data-f="code" maxlength="4" value="${esc(r.code || "")}" placeholder="ABC" aria-label="Kürzel ${i + 1}" autocomplete="off" spellcheck="false" style="text-transform:uppercase">
+      <input class="input n" data-f="food" inputmode="decimal" value="${r.food != null ? fmtN.format(r.food) : ""}" placeholder="Essen €" aria-label="Essen ${i + 1}">
+      <span class="num muted p-owes" data-o="${i}"></span><button class="btn ghost sm icon" type="button" data-rm="${i}" aria-label="Person entfernen">${I.x}</button></div>`).join("");
+    $$("input", box).forEach(inp => {
+      inp.addEventListener("input", () => { const r = rows[+inp.closest(".p-row").dataset.i]; if (inp.dataset.f === "code") r.code = inp.value.toUpperCase().trim(); else { const n = parseNum(inp.value); r.food = okNum(n) ? n : null; } calc(); });
+      inp.addEventListener("keydown", e => {
+        if (e.key !== "Enter") return; e.preventDefault();
+        const i = +inp.closest(".p-row").dataset.i;
+        if (inp.dataset.f === "code") $(`.p-row[data-i="${i}"] [data-f="food"]`, box).focus();
+        else if (i === rows.length - 1) { rows.push({code: "", food: null}); drawRows(true); } else $(`.p-row[data-i="${i + 1}"] [data-f="code"]`, box).focus();
+      });
+    });
+    $$("[data-rm]", box).forEach(b => b.onclick = () => { rows.splice(+b.dataset.rm, 1); drawRows(); });
+    if (focusLast) $(`.p-row[data-i="${rows.length - 1}"] [data-f="${rows.at(-1).code ? "food" : "code"}"]`, box)?.focus();
+    calc();
   };
-  $$("input", dlg).forEach(i => i.addEventListener("input", calc));
-  $("#o-c", dlg).addEventListener("blur", () => { $("#o-c", dlg).value = $("#o-c", dlg).value.toUpperCase(); });
-  $$("[data-code]", dlg).forEach(b => b.onclick = () => { const inp = $("#o-c", dlg); if (!parseCodes(inp.value).some(x => x && x.code === b.dataset.code)) inp.value = (inp.value.trim() + " " + b.dataset.code).trim(); calc(); });
-  calc();
+  const read = () => ({date: $("#o-d", dlg).value, restaurant: $("#o-r", dlg).value.trim(), own: round2(parseNum($("#o-e", dlg).value) || 0), fee: round2(parseNum($("#o-f", dlg).value) || 0),
+    discount: (parseNum($("#o-p", dlg).value) || 0) / 100, participants: rows.filter(r => r.code).map(r => ({code: r.code, food: round2(r.food || 0), paid: !!r.paid, ...(r.paidAt ? {paidAt: r.paidAt} : {})}))});
+  const calc = () => {
+    const r = read(), c = orderCalc(r);
+    rows.forEach((row, i) => { const el = $(`[data-o="${i}"]`, box); if (!el) return; const k = r.participants.findIndex(p => p.code === row.code); el.textContent = row.code && k >= 0 ? "zahlt " + eurPlain(c.owes[k]) : ""; });
+    const dup = r.participants.map(p => p.code).filter((c_, i, a) => a.indexOf(c_) !== i);
+    $("#o-calc", dlg).innerHTML = `<div class="r"><span>Gesamtbetrag der Bestellung</span><b class="num">${eur(c.B)}</b></div>
+      <div class="r"><span>Liefergebühr je Person (${r.participants.length + 1})</span><span class="num">${eur(c.feeShare)}</span></div>
+      <div class="r"><span>Echte Kosten mit ${fmtPs.format(c.d)} Rabatt</span><span class="num">${eur(c.cost)}</span></div>
+      <div class="r"><span>Bekommst du von Kollegen</span><span class="num">${eur(c.fromColleagues)}</span></div>
+      <div class="r total"><span>Gewinn mit dieser Bestellung</span><span class="num ${cls(c.profit)}">${sEur(c.profit)}</span></div>
+      ${dup.length ? `<span class="neg" style="font-size:12.5px">Kürzel doppelt: ${esc(dup.join(", "))}</span>` : ""}`;
+  };
+  $("#o-add", dlg).onclick = () => { rows.push({code: "", food: null}); drawRows(true); };
+  $$("[data-code]", dlg).forEach(b => b.onclick = () => { if (rows.some(r => r.code === b.dataset.code)) return; const empty = rows.find(r => !r.code); if (empty) empty.code = b.dataset.code; else rows.push({code: b.dataset.code, food: null}); drawRows(true); });
+  ["#o-e", "#o-f", "#o-p"].forEach(sel => $(sel, dlg).addEventListener("input", calc));
+  if (!rows.length) rows.push({code: "", food: null});
+  drawRows();
   $("[data-del]", dlg)?.addEventListener("click", () => { DB.income.orders = DB.income.orders.filter(x => x !== o); save(true); dlg.close(); toast("Bestellung gelöscht"); done(); });
   $("#of", dlg).onsubmit = ev => {
     ev.preventDefault();
-    const r = read();
-    if (!r.date || !(r.total > 0)) { $("#o-b", dlg).setAttribute("aria-invalid", "true"); return; }
-    if (parseCodes($("#o-c", dlg).value).some(x => !x)) return;
-    r.total = round2(r.total); r.own = round2(Math.min(r.own, r.total));
-    if (isNew) DB.income.orders.push({id: "o" + uid(), ...r}); else Object.assign(o, r);
+    const r = read(), c = orderCalc(r);
+    if (!r.date || !(c.B > 0)) { $("#o-e", dlg).setAttribute("aria-invalid", "true"); return; }
+    if (new Set(r.participants.map(p => p.code)).size !== r.participants.length) return;
+    r.total = c.B;
+    let rec = o;
+    if (isNew) { rec = {id: "o" + uid(), ...r}; DB.income.orders.push(rec); } else { delete o.own; Object.assign(o, r); }
     DB.income.settings.discount = r.discount;
-    incMonth = monthOf(r.date); save(true); dlg.close(); toast(`Bestellung gespeichert · Gewinn ${eur(orderCalc(r).profit)}`); done();
+    incMonth = monthOf(r.date); save(true); done();
+    if (rec.participants.length) messagesDialog(rec, done); else { dlg.close(); toast(`Bestellung gespeichert · Gewinn ${eur(c.profit)}`); }
   };
-  $(isNew ? "#o-r" : "#o-b", dlg).focus();
+  $(isNew ? "#o-r" : "#o-e", dlg).focus();
+}
+/** Copyable Teams texts per person, with "paid" ticks. */
+function messagesDialog(o, done) {
+  const c = orderCalc(o);
+  const draw = () => {
+    const ps = o.participants || [];
+    const all = ps.map((x, i) => `${x.code}: ${payText(c.owes[i], o.restaurant)}`).join("\n");
+    openDlg(`<div class="dlg-h"><h2 class="inl">${typeIc("lieferando")}Texte für Teams</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+      <div class="dlg-b"><p class="sub" style="margin:0">${esc(o.restaurant || "Lieferando")} · ${fmtDate(o.date)} · Gewinn <b class="pos">${sEur(c.profit)}</b> (nur für dich)</p>
+        <div style="display:grid;gap:8px">${ps.map((x, i) => `<div class="msg-line ${x.paid ? "is-paid" : ""}">
+          <label class="check" title="Bezahlt"><input type="checkbox" data-paid="${i}" ${x.paid ? "checked" : ""}> <span class="code">${esc(x.code)}</span></label>
+          <span class="mono msg-text">${esc(payText(c.owes[i], o.restaurant))}</span>
+          <button class="btn sm" type="button" data-copy="${i}">Kopieren</button></div>`).join("")}</div>
+        ${ps.length > 1 ? `<div class="field"><span class="lbl">Alle in einer Nachricht</span><textarea class="input" readonly style="min-height:${40 + ps.length * 20}px">${esc(all)}</textarea></div>` : ""}</div>
+      <div class="dlg-f">${ps.length > 1 ? `<button class="btn" type="button" id="m-all">Alle kopieren</button>` : "<span></span>"}<div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`, true);
+    $$("[data-copy]", dlg).forEach(b => b.onclick = () => copyText(payText(c.owes[+b.dataset.copy], o.restaurant), b));
+    $("#m-all", dlg)?.addEventListener("click", e => copyText(all, e.currentTarget));
+    $$("[data-paid]", dlg).forEach(cb => cb.onchange = () => { const x = o.participants[+cb.dataset.paid]; x.paid = cb.checked; if (cb.checked) x.paidAt = todayISO(); else delete x.paidAt; save(); cb.closest(".msg-line").classList.toggle("is-paid", cb.checked); done(); });
+  };
+  draw();
+}
+/* ================= View: Lieferando ================= */
+const WEEKDAYS = ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"];
+function lfStats(orders) {
+  if (!orders.length) return null;
+  const rows = orders.map(o => ({o, c: orderCalc(o)}));
+  const sum = rows.reduce((t, r) => t + r.c.B, 0);
+  const byRest = {}, byPerson = {}, wd = Array(7).fill(0);
+  rows.forEach(({o, c}) => {
+    const k = o.restaurant || "Unbekannt"; const r = byRest[k] ||= {n: 0, sum: 0}; r.n++; r.sum += c.B;
+    (o.participants || []).forEach((x, i) => { const p = byPerson[x.code] ||= {n: 0, food: 0}; p.n++; p.food += x.food ?? c.owes[i]; });
+    wd[parseD(o.date).getDay()]++;
+  });
+  const sorted = rows.slice().sort((a, b) => b.c.B - a.c.B);
+  const people = Object.entries(byPerson).map(([code, x]) => ({code, ...x, avg: x.food / x.n})).sort((a, b) => b.n - a.n || b.food - a.food);
+  const bigGroup = rows.slice().sort((a, b) => (b.o.participants || []).length - (a.o.participants || []).length)[0];
+  return {count: rows.length, sum, avg: sum / rows.length, max: sorted[0], min: sorted.at(-1), fees: rows.reduce((t, r) => t + r.c.fee, 0),
+    restaurants: Object.entries(byRest).map(([name, x]) => ({name, ...x})).sort((a, b) => b.n - a.n || b.sum - a.sum), people,
+    eater: people.filter(p => p.n >= 2).sort((a, b) => b.avg - a.avg)[0] || people.slice().sort((a, b) => b.avg - a.avg)[0],
+    weekdays: wd, topDay: wd.indexOf(Math.max(...wd)), persons: rows.reduce((t, r) => t + (r.o.participants || []).length + 1, 0) / rows.length, bigGroup};
+}
+let lfPeriod = "month";
+VIEWS.lieferando = v => {
+  v.innerHTML = `<div class="head"><div><h1 class="inl" style="gap:12px">${typeIc("lieferando")}Lieferando</h1><p>Gruppenbestellungen erfassen, Texte für Teams kopieren, Zahlungen abhaken. Dazu eine Statistik, die du mit deinen Kollegen teilen kannst.</p></div>
+      <div class="actions"><button class="btn primary" type="button" id="lf-new">${I.plus} Neue Bestellung</button></div></div>
+    <section class="kpis" id="lf-kpis"></section>
+    <section class="grid-2e">
+      <div class="card"><div class="card-h"><h2>Offene Zahlungen</h2><span class="muted" style="font-size:12.5px" id="lf-open-sum"></span></div><div class="card-b" id="lf-open"></div></div>
+      <div class="card"><div class="card-h"><h2>Letzte Bestellungen</h2></div><div class="card-b" id="lf-orders" style="padding-top:8px"></div></div>
+    </section>
+    <section class="card"><div class="card-h"><h2>Statistik</h2><div class="actions"><div class="seg" id="lf-period"><button type="button" data-v="month">Dieser Monat</button><button type="button" data-v="year">Dieses Jahr</button><button type="button" data-v="all">Gesamt</button></div></div></div>
+      <div class="card-b" id="lf-stats"></div></section>`;
+  const render = () => {
+    const orders = DB.income.orders, now = todayISO(), M = now.slice(0, 7);
+    const debts = openDebts(), openSum = debts.reduce((t, x) => t + x.sum, 0);
+    const mo = orders.filter(o => monthOf(o.date) === M), moC = mo.map(orderCalc);
+    $("#lf-kpis").innerHTML = kpi("Noch offen", eur(openSum), `<span class="muted">${debts.length} Kolleg${debts.length === 1 ? "e" : "en"} · ${debts.reduce((t, d) => t + d.items.length, 0)} Posten</span>`, I.wallet) +
+      kpi("Bestellungen", String(mo.length), `<span class="muted">im ${monthLabel(M).split(" ")[0]}</span>`, I.utensils) +
+      kpi("Gewinn diesen Monat", eur(moC.reduce((t, c) => t + c.profit, 0)), `<span class="muted">nur für dich sichtbar</span>`, I.trendingUp) +
+      kpi("Gewinn gesamt", eur(orders.map(orderCalc).reduce((t, c) => t + c.profit, 0)), `<span class="muted">aus ${orders.length} Bestellung${orders.length === 1 ? "" : "en"}</span>`, I.coins);
+    // open debts
+    $("#lf-open-sum").textContent = openSum ? eur(openSum) : "";
+    $("#lf-open").innerHTML = debts.length ? debts.map(d => `<div class="debt"><div class="split"><span class="inl"><span class="code">${esc(d.code)}</span><b class="num">${eur(d.sum)}</b></span>
+        <span class="actions"><button class="btn sm" type="button" data-remind="${esc(d.code)}">Text kopieren</button><button class="btn sm" type="button" data-allpaid="${esc(d.code)}">${d.items.length > 1 ? "Alles bezahlt" : "Bezahlt"}</button></span></div>
+        ${d.items.map(x => `<label class="debt-item"><input type="checkbox" data-pay="${x.o.id}:${x.i}" aria-label="Bezahlt"><span>${esc(x.o.restaurant || "Lieferando")} <span class="muted">· ${fmtDate(x.o.date)}</span></span><span class="num">${eur(x.amount)}</span></label>`).join("")}</div>`).join("")
+      : `<div class="empty" style="padding:20px 0">Alle haben bezahlt.</div>`;
+    const remindText = d => d.items.length === 1 ? payText(d.items[0].amount, d.items[0].o.restaurant) : `Bitte ${eurPlain(d.sum)} überweisen (${d.items.map(x => `${x.o.restaurant || "Lieferando"} ${parseD(x.o.date).toLocaleDateString(LOCALE, {day: "2-digit", month: "2-digit"})}`).join(", ")})`;
+    $$("[data-remind]").forEach(b => b.onclick = () => copyText(remindText(debts.find(d => d.code === b.dataset.remind)), b));
+    const markPaid = (o, i, val) => { const x = o.participants[i]; x.paid = val; if (val) x.paidAt = todayISO(); else delete x.paidAt; };
+    $$("[data-pay]").forEach(cb => cb.onchange = () => { const [id, i] = cb.dataset.pay.split(":"); markPaid(orders.find(o => o.id === id), +i, cb.checked); save(); setTimeout(render, 250); });
+    $$("[data-allpaid]").forEach(b => b.onclick = () => { debts.find(d => d.code === b.dataset.allpaid).items.forEach(x => markPaid(x.o, x.i, true)); save(); toast(`${b.dataset.allpaid} als bezahlt markiert`); render(); });
+    // recent orders
+    const recent = orders.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
+    $("#lf-orders").innerHTML = recent.length ? recent.map(o => { const c = orderCalc(o); return `<div class="pos-row" data-o="${o.id}" style="cursor:pointer"><span class="nm">${esc(o.restaurant || "Lieferando")}</span><span class="r num">${eur(c.B)}</span>
+        <span class="sub2"><span class="codes" style="display:inline-flex">${(o.participants || []).map(z => `<span class="code ${z.paid ? "paid" : ""}">${esc(z.code)}</span>`).join("")}</span></span><span class="sub2 r">${fmtDate(o.date)} · <button class="btn ghost sm" type="button" data-texts="${o.id}" style="height:22px;padding:0 6px">Texte</button></span></div>`; }).join("")
+      : `<div class="empty" style="padding:20px 0">Noch keine Bestellungen.</div>`;
+    $$("#lf-orders [data-o]").forEach(r => r.onclick = e => { if (e.target.closest("[data-texts]")) return; orderDialog(orders.find(o => o.id === r.dataset.o), render); });
+    $$("[data-texts]").forEach(b => b.onclick = () => messagesDialog(orders.find(o => o.id === b.dataset.texts), render));
+    // stats
+    $$("#lf-period button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === lfPeriod));
+    const sel = orders.filter(o => lfPeriod === "all" || (lfPeriod === "year" ? o.date.slice(0, 4) === now.slice(0, 4) : monthOf(o.date) === M));
+    const st = lfStats(sel), plabel = lfPeriod === "all" ? "Gesamt" : lfPeriod === "year" ? now.slice(0, 4) : monthLabel(M);
+    if (!st) { $("#lf-stats").innerHTML = `<p class="muted" style="margin:0">Noch keine Bestellungen in diesem Zeitraum.</p>`; return; }
+    const maxR = Math.max(...st.restaurants.map(r => r.n)), maxW = Math.max(...st.weekdays, 1), maxP = Math.max(...st.people.map(p => p.n), 1);
+    const days = [1, 2, 3, 4, 5, ...[6, 0].filter(d => st.weekdays[d])];
+    $("#lf-stats").innerHTML = `<div class="stat-grid">
+        <div class="stat"><span>Bestellungen</span><b class="num">${st.count}</b><span>Ø ${st.persons.toLocaleString(LOCALE, {maximumFractionDigits: 1})} Personen</span></div>
+        <div class="stat"><span>Gesamt bestellt</span><b class="num">${eur0(st.sum)}</b><span>Ø ${eur(st.avg)} pro Bestellung</span></div>
+        <div class="stat"><span>Lieblingsrestaurant</span><b>${esc(st.restaurants[0].name)}</b><span>${st.restaurants[0].n}× bestellt</span></div>
+        <div class="stat"><span>Höchste Bestellung</span><b class="num">${eur(st.max.c.B)}</b><span>${esc(st.max.o.restaurant || "")} · ${fmtDate(st.max.o.date)}</span></div>
+        <div class="stat"><span>Niedrigste Bestellung</span><b class="num">${eur(st.min.c.B)}</b><span>${esc(st.min.o.restaurant || "")} · ${fmtDate(st.min.o.date)}</span></div>
+        <div class="stat"><span>Lieblingstag</span><b>${WEEKDAYS[st.topDay]}</b><span>${st.weekdays[st.topDay]}× bestellt</span></div>
+      </div>
+      <div class="grid-2e" style="margin-top:18px;gap:24px">
+        <div><div class="eyebrow" style="margin-bottom:8px">Restaurants</div>${st.restaurants.slice(0, 6).map(r => `<div class="bar-row"><span class="nm">${esc(r.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${r.n / maxR * 100}%;background:${INC_TYPES.lieferando.color}"></span></span><span class="num muted">${r.n}×</span></div>`).join("")}</div>
+        <div><div class="eyebrow" style="margin-bottom:8px">Mitbesteller</div>${st.people.slice(0, 6).map(p => `<div class="bar-row" style="grid-template-columns:56px minmax(0,1fr) auto"><span class="code" style="justify-self:start">${esc(p.code)}</span><span class="bar-track"><span class="bar-fill" style="width:${p.n / maxP * 100}%"></span></span><span class="num muted">${p.n}× · Ø ${eur(p.avg)}</span></div>`).join("") || '<p class="muted">Noch niemand.</p>'}</div>
+      </div>
+      <div style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">Wochentage</div><div style="display:grid;grid-template-columns:repeat(${days.length},1fr);gap:8px;align-items:end;height:90px">${days.map(d => `<div style="display:grid;gap:4px;justify-items:center;align-self:end"><span class="num muted" style="font-size:12px">${st.weekdays[d]}</span><span style="display:block;width:100%;max-width:56px;height:${Math.max(4, st.weekdays[d] / maxW * 56)}px;border-radius:6px 6px 2px 2px;background:${d === st.topDay ? INC_TYPES.lieferando.color : "var(--surface-3)"}"></span><span style="font-size:12px">${WEEKDAYS[d].slice(0, 2)}</span></div>`).join("")}</div></div>
+      <div class="actions" style="margin-top:18px"><button class="btn primary" type="button" id="lf-img">${I.download} Als Bild teilen</button><button class="btn" type="button" id="lf-txt">Als Text kopieren</button><span class="hint">Ohne Gewinn und Rabatt, nur Bestellungen, Restaurants und Kürzel.</span></div>`;
+    $("#lf-txt").onclick = e => copyText(statsText(st, plabel), e.currentTarget);
+    $("#lf-img").onclick = () => shareStatsImage(st, plabel);
+  };
+  $$("#lf-period button").forEach(b => b.onclick = () => { lfPeriod = b.dataset.v; render(); });
+  $("#lf-new").onclick = () => orderDialog(null, render);
+  render();
+};
+function statsText(st, label) {
+  return [`🍕 Lieferando-Statistik · ${label}`, ``,
+    `Bestellungen: ${st.count} (Ø ${st.persons.toLocaleString(LOCALE, {maximumFractionDigits: 1})} Personen)`,
+    `Gesamt bestellt: ${eurPlain(st.sum)} · Ø ${eurPlain(st.avg)}`,
+    `Lieblingsrestaurant: ${st.restaurants[0].name} (${st.restaurants[0].n}×)`,
+    `Höchste Bestellung: ${eurPlain(st.max.c.B)} (${st.max.o.restaurant || "–"}, ${fmtDate(st.max.o.date)})`,
+    `Niedrigste Bestellung: ${eurPlain(st.min.c.B)} (${st.min.o.restaurant || "–"}, ${fmtDate(st.min.o.date)})`,
+    `Lieblingstag: ${WEEKDAYS[st.topDay]}`,
+    st.people.length ? `Top-Mitbesteller: ${st.people.slice(0, 3).map(p => `${p.code} ${p.n}×`).join(", ")}` : "",
+    st.eater ? `Größter Hunger: ${st.eater.code} (Ø ${eurPlain(st.eater.avg)})` : ""].filter(x => x !== "").join("\n");
+}
+async function shareStatsImage(st, label) {
+  const W = 1080, H = 1350, cv = Object.assign(document.createElement("canvas"), {width: W, height: H}), g = cv.getContext("2d");
+  try { await Promise.all(["400 30px Inter", "600 30px Inter", "700 30px Inter"].map(f => document.fonts.load(f))); } catch {}
+  const F = (w, sz) => `${w} ${sz}px Inter, system-ui, sans-serif`;
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
+  g.fillStyle = "#0B0F1A"; g.fillRect(0, 0, W, H);
+  // logo
+  rr(72, 72, 64, 64, 15); g.fillStyle = "#121826"; g.fill();
+  g.strokeStyle = "#34D399"; g.lineWidth = 6; g.lineCap = "round"; g.lineJoin = "round"; g.beginPath();
+  [[15, 43.5], [26.5, 30.5], [35, 37.5], [49, 21]].forEach(([x, y], i) => i ? g.lineTo(72 + x, 72 + y) : g.moveTo(72 + x, 72 + y)); g.stroke();
+  g.fillStyle = "#F1F5F9"; g.font = F(700, 40); g.fillText("Tracky", 156, 118);
+  g.fillStyle = "#F97316"; g.font = F(600, 26); g.fillText("LIEFERANDO-STATISTIK", 72, 210);
+  g.fillStyle = "#F1F5F9"; g.font = F(700, 64); g.fillText(label, 72, 284);
+  // tiles
+  const tiles = [["Bestellungen", String(st.count)], ["Gesamt bestellt", eur0(st.sum)], ["Ø Bestellung", eur(st.avg)]];
+  tiles.forEach(([l, v], i) => { const x = 72 + i * 318, y = 330; rr(x, y, 294, 150, 22); g.fillStyle = "#121826"; g.fill(); g.fillStyle = "#7D8AA0"; g.font = F(500, 24); g.fillText(l, x + 26, y + 50); g.fillStyle = "#F1F5F9"; g.font = F(700, 46); g.fillText(v, x + 26, y + 112); });
+  const line = (y, l, v, sub) => { rr(72, y, 936, 112, 22); g.fillStyle = "#121826"; g.fill(); g.fillStyle = "#7D8AA0"; g.font = F(500, 24); g.fillText(l, 100, y + 44); g.fillStyle = "#F1F5F9"; g.font = F(700, 34); g.fillText(v, 100, y + 88); if (sub) { g.fillStyle = "#A9B4C6"; g.font = F(500, 26); const w = g.measureText(sub).width; g.fillText(sub, 980 - w, y + 88); } };
+  line(510, "Lieblingsrestaurant", st.restaurants[0].name.slice(0, 32), `${st.restaurants[0].n}× bestellt`);
+  line(640, "Höchste Bestellung", eur(st.max.c.B), `${(st.max.o.restaurant || "").slice(0, 22)} · ${fmtDate(st.max.o.date)}`);
+  line(770, "Niedrigste Bestellung", eur(st.min.c.B), `${(st.min.o.restaurant || "").slice(0, 22)} · ${fmtDate(st.min.o.date)}`);
+  // top people
+  g.fillStyle = "#7D8AA0"; g.font = F(600, 24); g.fillText("TOP-MITBESTELLER", 72, 950);
+  const maxN = Math.max(...st.people.map(p => p.n), 1);
+  st.people.slice(0, 5).forEach((p, i) => { const y = 980 + i * 52; g.fillStyle = "#F1F5F9"; g.font = F(700, 28); g.fillText(p.code, 72, y + 30); rr(170, y + 10, 640, 24, 12); g.fillStyle = "#1F293D"; g.fill(); rr(170, y + 10, Math.max(24, 640 * p.n / maxN), 24, 12); g.fillStyle = "#F97316"; g.fill(); g.fillStyle = "#A9B4C6"; g.font = F(500, 24); g.fillText(`${p.n}×`, 840, y + 31); });
+  g.fillStyle = "#7D8AA0"; g.font = F(500, 24); g.fillText(`Lieblingstag: ${WEEKDAYS[st.topDay]}${st.eater ? `  ·  Größter Hunger: ${st.eater.code}` : ""}`, 72, 1290);
+  const blob = await new Promise(r => cv.toBlob(r, "image/png"));
+  const file = new File([blob], `lieferando-statistik-${todayISO()}.png`, {type: "image/png"});
+  try { if (navigator.canShare?.({files: [file]})) { await navigator.share({files: [file], title: "Lieferando-Statistik"}); return; } } catch (e) { if (e?.name === "AbortError") return; }
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement("a"), {href: url, download: file.name}); document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  toast("Bild gespeichert, jetzt in Teams einfügen");
 }
 function dealDialog(x, done) {
   const isNew = !x;

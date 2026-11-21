@@ -4,6 +4,7 @@
 
 Tracky ist ein persönlicher Vermögens-Tracker im Browser: **https://flotsch3400.github.io/Privates-M/**
 
+- **Lieferando:** Gruppenbestellungen mit Liefergebühr-Aufteilung, Teams-Texte zum Kopieren, offene Zahlungen abhaken, teilbare Statistik
 - **Einkommen:** Gehalt, Lieferando-Gruppenbestellungen mit Gewinnrechnung, Cashback, Willhaben-Deals und Zinsen je Monat
 - **Aktien & ETFs, Krypto:** eigene Übersicht je Anlageklasse mit Entwicklung, Aufteilung nach Konto und Live-Positionen
 - **Übersicht:** Nettovermögen, Allzeithoch, KPI-Karten, Entwicklung, Aufteilung als Donut, Zeitraumvergleich, Vermögensstruktur, Anbieter
