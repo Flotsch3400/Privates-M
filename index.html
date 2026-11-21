@@ -580,6 +580,8 @@ const CHAIN_LOGOS = {btc: "https://coin-images.coingecko.com/coins/images/1/larg
 const logoBox = (src, label, size = "", round = false) => `<span class="logo ${size} ${round ? "round" : ""}" aria-hidden="true">${esc(initials(label))}${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</span>`;
 function accLogo(a, size = "") {
   if (!a) return logoBox("", "?", size);
+  const coinLogo = a.holdings?.length === 1 && a.holdings[0].type === "crypto" ? (a.holdings[0].logo || QUOTES[hKey(a.holdings[0])]?.logo) : a.coinLogo;
+  if (a.cat === "krypto" && coinLogo) return logoBox(coinLogo, a.name, size, true);
   const d = a.domain || guessDomain(a.provider) || guessDomain(a.name);
   if (d) return logoBox(favicon(d), a.provider || a.name, size);
   const metal = a.holdings?.find(h => h.type === "metal");
@@ -674,16 +676,43 @@ async function walletBalance(chain, addr) {
   }
   throw new Error("Unbekannte Blockchain");
 }
+/** USD → EUR for prices that only exist in USD (DEX pairs). */
+let usdEur = null;
+async function usdToEur() {
+  if (usdEur) return usdEur;
+  try { const j = await getJSON("https://api.frankfurter.app/latest?from=USD&to=EUR"); usdEur = j.rates.EUR; }
+  catch { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=eur"); usdEur = j.tether.eur; }
+  return usdEur;
+}
+const isAddr = v => /^0x[a-fA-F0-9]{40}$/.test(v) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v);
+/** Best DEX pair per token address (highest liquidity), from DexScreener. */
+async function dexQuotes(addrs) {
+  const out = {};
+  for (let i = 0; i < addrs.length; i += 30) {
+    const chunk = addrs.slice(i, i + 30);
+    const j = await getJSON(`https://api.dexscreener.com/latest/dex/tokens/${chunk.join(",")}`);
+    const fx = await usdToEur();
+    chunk.forEach(a => {
+      const pairs = (j.pairs || []).filter(p => p.baseToken?.address?.toLowerCase() === a.toLowerCase() && p.priceUsd);
+      if (!pairs.length) return;
+      const best = pairs.sort((x, y) => (y.liquidity?.usd || 0) - (x.liquidity?.usd || 0))[0];
+      out[a] = {priceEur: +best.priceUsd * fx, price: +best.priceUsd, currency: "USD", change: (best.priceChange?.h24 ?? 0) / 100, name: best.baseToken.name,
+        logo: best.info?.imageUrl || "", source: `DexScreener (${best.dexId} · ${best.chainId})`, liquidity: best.liquidity?.usd || 0};
+    });
+  }
+  return out;
+}
 const hKey = h => h.type === "wallet" ? `wallet:${h.chain}:${h.address}` : `${h.type}:${h.symbol}`;
 const MARKET = {
   /** items: holdings ({type, symbol, chain, address}). Returns {quotes: {key: quote}, errors: {key: text}}. */
   async quotes(items) {
     const quotes = {}, errors = {};
     const uniq = new Map(items.map(h => [hKey(h), h]));
-    const stocks = [], metals = [], coins = new Set(), wallets = [];
+    const stocks = [], metals = [], coins = new Set(), wallets = [], dexes = [];
     for (const h of uniq.values()) {
       if (h.type === "stock") stocks.push(h.symbol);
       else if (h.type === "metal") metals.push(h.symbol);
+      else if (h.type === "crypto" && (h.src === "dex" || isAddr(h.symbol))) dexes.push(h.symbol);
       else if (h.type === "crypto") coins.add(h.symbol);
       else if (h.type === "wallet") { wallets.push(h); coins.add(CHAINS[h.chain]?.coin); }
     }
@@ -716,7 +745,12 @@ const MARKET = {
       else if (def?.cg && cg[def.cg]) quotes["metal:" + m] = {...cg[def.cg], name: def.name, symbol: m, source: "CoinGecko (Gold-Token)"};
       else errors["metal:" + m] = "Kein Kurs gefunden";
     });
-    [...uniq.values()].filter(h => h.type === "crypto").forEach(h => {
+    if (dexes.length) {
+      let dq = {};
+      try { dq = await dexQuotes([...new Set(dexes)]); } catch {}
+      dexes.forEach(a => dq[a] ? quotes["crypto:" + a] = dq[a] : errors["crypto:" + a] = "Kein Handelspaar gefunden");
+    }
+    [...uniq.values()].filter(h => h.type === "crypto" && !(h.src === "dex" || isAddr(h.symbol))).forEach(h => {
       if (cg[h.symbol]) quotes["crypto:" + h.symbol] = cg[h.symbol];
       else errors["crypto:" + h.symbol] = "Unbekannte CoinGecko-ID oder nicht erreichbar";
     });
@@ -733,8 +767,18 @@ const MARKET = {
   },
   async search(q, type) {
     if (type === "crypto") {
-      const j = await getJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`);
-      return (j.coins || []).slice(0, 8).map(c => ({symbol: c.id, name: c.name, ticker: (c.symbol || "").toUpperCase(), type: "Krypto", exchange: "CoinGecko", logo: c.large || c.thumb}));
+      const [cgR, dxR] = await Promise.allSettled([
+        getJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`),
+        getJSON(`https://api.dexscreener.com/latest/dex/search?q=${encodeURIComponent(q)}`),
+      ]);
+      const cg = cgR.status === "fulfilled" ? (cgR.value.coins || []).slice(0, 8).map(c => ({symbol: c.id, name: c.name, ticker: (c.symbol || "").toUpperCase(), type: "Krypto", exchange: "CoinGecko", logo: c.large || c.thumb, src: "cg"})) : [];
+      const seen = new Set(), dx = [];
+      (dxR.status === "fulfilled" ? dxR.value.pairs || [] : []).sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0)).forEach(p => {
+        const a = p.baseToken?.address; if (!a || seen.has(a.toLowerCase())) return; seen.add(a.toLowerCase());
+        if (dx.length < 6) dx.push({symbol: a, name: p.baseToken.name, ticker: p.baseToken.symbol, type: "DEX", exchange: `${p.chainId} · ${p.dexId} · Liquidität ${eur0((p.liquidity?.usd || 0) * (usdEur || 0.92))}`, logo: p.info?.imageUrl || "", src: "dex"});
+      });
+      if (!cg.length && !dx.length && cgR.status === "rejected" && dxR.status === "rejected") throw new Error("offline");
+      return [...cg, ...dx];
     }
     let j;
     if (MODE === "server") return await getJSON(`api/search?kind=stock&q=${encodeURIComponent(q)}`);
@@ -751,8 +795,12 @@ function pickListing(list) {
 
 let QUOTES = {}, QERR = {}, quotesAt = null, quoteBusy = null;
 const allHoldings = (incArchived = false) => DB.accounts.filter(a => incArchived || !a.archived).flatMap(a => a.holdings.map(h => ({h, a})));
+/** Accounts that could be valued live: they carry a suggested coin or wallet in the data file but no positions yet. */
+const coinItem = a => a.coin?.wallet ? null : a.coin ? {type: "crypto", symbol: a.coin.id, src: a.coin.src || (isAddr(a.coin.id) ? "dex" : "cg")} : null;
+const coinKey = a => { const it = coinItem(a); return it ? hKey(it) : ""; };
+const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && !isLive(a));
 async function refreshQuotes(silent) {
-  const items = allHoldings().map(x => x.h);
+  const items = [...allHoldings().map(x => x.h), ...suggestions().map(coinItem).filter(Boolean)];
   if (!items.length) { setLiveStatus(); return; }
   if (quoteBusy) return quoteBusy;
   setLiveStatus("busy"); $$("[data-refresh]").forEach(b => b.classList.add("spin"));
@@ -761,6 +809,7 @@ async function refreshQuotes(silent) {
       const j = await MARKET.quotes(items);
       Object.assign(QUOTES, j.quotes); QERR = j.errors;
       allHoldings(true).forEach(({h}) => { const q = j.quotes[hKey(h)]; if (q?.logo && h.type === "crypto" && h.logo !== q.logo) h.logo = q.logo; });
+      DB.accounts.forEach(a => { if (a.coin && !a.coinLogo) { const q = j.quotes[coinKey(a)]; if (q?.logo) a.coinLogo = q.logo; } });
       if (Object.keys(j.quotes).length) {
         quotesAt = new Date();
         Object.entries(j.quotes).forEach(([k, q]) => DB.lastQuotes[k] = {priceEur: q.priceEur, balance: q.balance, at: quotesAt.toISOString()});
@@ -1227,10 +1276,11 @@ VIEWS.depot = v => {
   v.innerHTML = `<div class="head"><div><h1>Depot & Kurse</h1><p>Hier liegen alle Positionen, die automatisch bewertet werden: Aktien, ETFs und Fonds, Kryptowährungen, Edelmetalle und Wallets. Such einfach nach Name, Ticker oder ISIN und gib die Stückzahl ein. Der Kurs aktualisiert sich dann von selbst.</p></div>
     <div class="actions"><button class="btn" type="button" id="d-q" data-refresh>${I.refresh} Aktualisieren</button><button class="btn" type="button" id="d-imp">${I.paste} Depot einfügen</button><button class="btn primary" type="button" id="d-add">${I.plus} Position hinzufügen</button></div></div>
     <section class="kpis" id="d-kpis"></section>
+    <div id="d-sugg"></div>
     <div id="d-list" style="display:grid;gap:14px"></div>
     <div class="card"><div class="card-b" style="display:grid;gap:8px">
       <h3>Woher kommen die Kurse?</h3>
-      <p class="sub" style="margin:0">Aktien, ETFs, Fonds und Edelmetalle kommen von Yahoo Finance, Kryptowährungen von CoinGecko. Alles wird in Euro umgerechnet. Bei Wallets liest die App das Guthaben deiner öffentlichen Adresse direkt aus der Blockchain: Bitcoin über mempool.space, Ethereum und Solana über PublicNode, Algorand über AlgoNode. Dafür brauchst du keine Zugangsdaten, und die App kann nichts verändern.</p>
+      <p class="sub" style="margin:0">Aktien, ETFs, Fonds und Edelmetalle kommen von Yahoo Finance, Kryptowährungen von CoinGecko. Kleinere Token, die dort fehlen, findet die Suche über DexScreener direkt an den dezentralen Börsen, auch per Vertragsadresse. Alles wird in Euro umgerechnet. Bei Wallets liest die App das Guthaben deiner öffentlichen Adresse direkt aus der Blockchain: Bitcoin über mempool.space, Ethereum und Solana über PublicNode, Algorand über AlgoNode. Dafür brauchst du keine Zugangsdaten, und die App kann nichts verändern.</p>
       <p class="hint" style="margin:0">Flatex, Trade Republic und Robinhood bieten für Privatkunden keine offizielle Schnittstelle an. Deshalb gibt es „Depot einfügen“: Kopiere die Bestandsliste aus dem Onlinebanking hierher, die App erkennt die ISINs und Stückzahlen. Zugangsdaten zu Banken oder Börsen gehören aus Sicherheitsgründen nie in eine Webseite.</p>
     </div></div>`;
   const render = () => {
@@ -1242,6 +1292,16 @@ VIEWS.depot = v => {
       kpi("Heute", rows.some(r => r.change != null) ? sEur0(dayAbs) : "–", rows.some(r => r.change != null) ? `<span class="${cls(dayAbs)}">${pct(dayAbs / (totalV - dayAbs || 1))}</span> <span class="muted">Tagesveränderung</span>` : '<span class="muted">nach dem Laden der Kurse</span>') +
       kpi("Kursstand", quotesAt ? quotesAt.toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"}) + " Uhr" : "–", stale ? `<span class="${quotesAt ? "neg" : "muted"}">${stale} ohne aktuellen Kurs</span>` : '<span class="pos">alle aktuell</span>') +
       kpi("Anteil am Vermögen", latest() ? fmtPs.format(totalV / (total(liveEstimate() ? {values: liveEstimate().values} : latest()) || 1)) : "–", '<span class="muted">am Nettovermögen</span>');
+    const sug = suggestions(), L = latest();
+    $("#d-sugg").innerHTML = sug.length ? `<div class="card"><div class="card-h"><h2>Live bewerten</h2><span class="muted" style="font-size:12.5px">${sug.length} ${sug.length > 1 ? "Konten" : "Konto"} mit passendem Coin oder Wallet</span></div>
+      <div class="card-b" style="padding-top:8px"><p class="sub" style="margin:0 0 6px">Diese Konten bewertest du bisher von Hand. Ein Klick übernimmt den Coin, die Stückzahl wird aus dem letzten Stichtagswert und dem aktuellen Kurs berechnet. Du kannst sie vor dem Speichern anpassen.</p>
+      ${sug.map(a => { const q = QUOTES[coinKey(a)]; return `<div class="pos-row" style="align-items:center"><span class="nm">${accLogo(a, "lg")}<span>${esc(a.name)} <span class="muted" style="font-weight:400">· ${a.coin.wallet ? CHAINS[a.coin.wallet].name + "-Wallet" : esc(a.coin.name)}${q ? ` · ${fmtPx(q.priceEur)} €` : ""}</span></span></span>
+        <span class="r"><span class="num muted" style="margin-right:10px;font-weight:500">${L?.values[a.id] != null ? eur0(L.values[a.id]) : ""}</span><button class="btn sm primary" type="button" data-sug="${a.id}">${I.refresh} Live bewerten</button></span></div>`; }).join("")}</div></div>` : "";
+    $$("[data-sug]").forEach(b => b.onclick = () => {
+      const a = accById(b.dataset.sug);
+      const preset = a.coin.wallet ? {type: "wallet", chain: a.coin.wallet} : {type: "crypto", symbol: a.coin.id, name: a.coin.name, src: a.coin.src || "", logo: a.coinLogo || "", autoQty: true};
+      holdingDialog(a, null, render, preset);
+    });
     const accs = DB.accounts.filter(a => isLive(a) && !a.archived);
     if (!accs.length) {
       $("#d-list").innerHTML = `<div class="card empty" style="display:grid;gap:12px;justify-items:center"><p style="margin:0;max-width:52ch">Noch keine Positionen. Lege zum Beispiel deine Flatex-Aktien an: Position hinzufügen, nach der Aktie oder ISIN suchen, Stückzahl eintragen. Fertig.</p><button class="btn primary" type="button" data-addfirst>${I.plus} Erste Position hinzufügen</button></div>`;
@@ -1523,11 +1583,16 @@ function accountDialog(acc, done) {
       <div class="field"><label for="a-prov">Anbieter</label><input class="input" id="a-prov" value="${esc(a.provider || "")}" placeholder="z. B. Flatex" list="prov-list"><datalist id="prov-list">${[...new Set(DB.accounts.map(x => x.provider).filter(Boolean))].sort().map(p => `<option value="${esc(p)}">`).join("")}</datalist></div></div>
       <div class="row2"><div class="field"><label for="a-cat">Kategorie</label><select class="input" id="a-cat">${catOptions(a.cat)}</select></div>
       <div class="field"><label for="a-dom">Webseite (für das Logo)</label><div class="with-logo"><span id="a-logo">${accLogo(a)}</span><input class="input" id="a-dom" value="${esc(a.domain || "")}" placeholder="${esc(guessDomain(a.provider || a.name) || "z. B. flatex.at")}" spellcheck="false" autocomplete="off"></div></div></div>
-      ${!isNew ? `<div class="msg info">${isLive(acc) ? `Dieses Konto wird aus ${acc.holdings.length} Position${acc.holdings.length > 1 ? "en" : ""} live bewertet. Positionen änderst du unter <a href="#depot">Depot & Live</a>.` : `Dieses Konto bewertest du von Hand. Soll es automatisch bewertet werden, füge unter <a href="#depot">Depot & Live</a> Positionen hinzu.`}</div>
+      ${!isNew ? `<div class="msg info">${isLive(acc) ? `Dieses Konto wird aus ${acc.holdings.length} Position${acc.holdings.length > 1 ? "en" : ""} live bewertet. Positionen änderst du unter <a class="link" href="#depot">Depot & Kurse</a>.` : `Dieses Konto bewertest du von Hand. <button class="btn sm" type="button" id="a-live" style="margin-left:6px">${I.refresh} Live bewerten</button>`}</div>
         <label class="check"><input type="checkbox" id="a-arch" ${a.archived ? "checked" : ""}> Archiviert (Konto existiert nicht mehr, bleibt im Verlauf erhalten)</label>` : ""}
     </div>
     <div class="dlg-f">${!isNew && !used ? '<button class="btn danger" type="button" data-del>Löschen</button>' : ""}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div></form>`);
   $$("a[href='#depot']", dlg).forEach(l => l.onclick = () => dlg.close());
+  $("#a-live", dlg)?.addEventListener("click", () => {
+    const t = acc.coin?.wallet ? "wallet" : {krypto: "crypto", edelmetalle: "metal"}[acc.cat] || "stock";
+    const preset = acc.coin?.wallet ? {type: "wallet", chain: acc.coin.wallet} : acc.coin ? {type: "crypto", symbol: acc.coin.id, name: acc.coin.name, src: acc.coin.src || "", autoQty: true} : {type: t, autoQty: true};
+    holdingDialog(acc, null, done, preset);
+  });
   const prevLogo = () => { $("#a-logo", dlg).innerHTML = accLogo({...a, name: $("#a-name", dlg).value, provider: $("#a-prov", dlg).value, cat: $("#a-cat", dlg).value, domain: cleanDomain($("#a-dom", dlg).value)}); $("#a-dom", dlg).placeholder = guessDomain($("#a-prov", dlg).value || $("#a-name", dlg).value) || "z. B. flatex.at"; };
   ["#a-name", "#a-prov", "#a-dom"].forEach(sel => $(sel, dlg).addEventListener("input", debounce(prevLogo, 300))); $("#a-cat", dlg).onchange = prevLogo;
   $("[data-del]", dlg)?.addEventListener("click", () => { DB.accounts = DB.accounts.filter(x => x.id !== acc.id); save(true); dlg.close(); toast("Konto gelöscht"); done(); });
@@ -1542,9 +1607,9 @@ function accountDialog(acc, done) {
 }
 
 /** Add or edit one live position (share/ETF, crypto, precious metal, wallet). */
-function holdingDialog(acc, h, done) {
+function holdingDialog(acc, h, done, preset) {
   const isNew = !h;
-  const st = h ? {...h} : {type: "stock", symbol: "", name: "", qty: null, isin: ""};
+  const st = h ? {...h} : {type: "stock", symbol: "", name: "", qty: null, isin: "", ...(preset || {})};
   const liveAccs = DB.accounts.filter(a => !a.archived);
   const defAcc = acc || DB.accounts.find(a => !a.archived && isLive(a) && a.cat === "wertpapiere") || DB.accounts.find(a => !a.archived && a.cat === "wertpapiere");
   openDlg(`<form id="hf"><div class="dlg-h"><h2>${isNew ? "Position hinzufügen" : "Position bearbeiten"}</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
@@ -1570,7 +1635,7 @@ function holdingDialog(acc, h, done) {
     $("#h-sym-f", dlg).hidden = t === "metal" || t === "wallet";
     $("#h-qty-f", dlg).hidden = t === "wallet";
     $("#h-q-l", dlg).textContent = t === "crypto" ? "Kryptowährung suchen" : "Suche nach Name, Ticker, ISIN oder WKN";
-    $("#h-q", dlg).placeholder = t === "crypto" ? "z. B. Bitcoin, Ethereum, Solana" : "z. B. MSCI World, Apple, IE00B4L5Y983";
+    $("#h-q", dlg).placeholder = t === "crypto" ? "z. B. Bitcoin, Coca, Pluton oder Vertragsadresse 0x…" : "z. B. MSCI World, Apple, IE00B4L5Y983";
     $("#h-qty-l", dlg).textContent = t === "metal" ? "Menge" : "Stückzahl";
     if (isNew && acc == null) {
       const want = {stock: "wertpapiere", crypto: "krypto", metal: "edelmetalle", wallet: "krypto"}[t];
@@ -1590,8 +1655,13 @@ function holdingDialog(acc, h, done) {
     if (!q) { el.innerHTML = `<span class="neg">${item.type === "wallet" ? "Guthaben konnte nicht gelesen werden. Prüfe Adresse und Blockchain." : `Kein Kurs gefunden für „${esc(item.symbol)}“. Prüfe das Symbol oder versuch es später nochmal.`}</span>`; return; }
     QUOTES[hKey(item)] = q;
     const qty = item.type === "wallet" ? q.balance : item.qty || 0;
+    const target = accById($("#h-acc", dlg).value), lastV = target ? latest()?.values[target.id] || 0 : 0;
+    if (st.autoQty && !item.qty && lastV > 0 && item.type !== "wallet") { st.autoQty = false; $("#h-qty", dlg).value = fmtQ.format(+(lastV / q.priceEur).toPrecision(8)); return check(); }
     el.innerHTML = item.type === "wallet" ? `Guthaben: <b class="num">${fmtQ.format(q.balance)} ${CHAINS[item.chain].ticker}</b> · Wert <b class="num">${eur(q.balance * q.priceEur)}</b>`
-      : `Aktueller Kurs: <b class="num">${fmtPx(q.priceEur)} €</b>${q.currency && q.currency !== "EUR" && q.price ? ` (${fmtPx(q.price)} ${esc(q.currency)})` : ""}${item.type === "metal" ? " je Feinunze" : ""}${qty ? ` · Wert <b class="num">${eur(qty * q.priceEur)}</b>` : ""}`;
+      : `Aktueller Kurs: <b class="num">${fmtPx(q.priceEur)} €</b>${q.currency && q.currency !== "EUR" && q.price ? ` (${fmtPx(q.price)} ${esc(q.currency)})` : ""}${item.type === "metal" ? " je Feinunze" : ""}${qty ? ` · Wert <b class="num">${eur(qty * q.priceEur)}</b>` : ""}${q.source ? ` <span class="muted">· ${esc(q.source)}</span>` : ""}` +
+        (item.type !== "wallet" && lastV > 0 && Math.abs(qty * q.priceEur - lastV) > 1 ? `<div style="margin-top:8px"><button class="btn sm" type="button" id="h-fromval">Stückzahl aus Kontowert ${eur0(lastV)} berechnen</button></div>` : "");
+    $("#h-fromval", dlg)?.addEventListener("click", () => { $("#h-qty", dlg).value = fmtQ.format(+(lastV / q.priceEur).toPrecision(8)); check(); });
+    if (q.logo && !st.logo) st.logo = q.logo;
     if (!$("#h-sym", dlg).dataset.named && q.name && item.type === "stock" && !st.name) st.name = q.name;
   };
   const collect = quiet => {
@@ -1599,7 +1669,8 @@ function holdingDialog(acc, h, done) {
     if (t === "wallet") { const addr = $("#h-addr", dlg).value.trim(), chain = $("#h-chain", dlg).value; if (!addr) return null; return {type: t, chain, address: addr, name: CHAINS[chain].name + " Wallet"}; }
     if (t === "metal") { const sym = $("#h-mt", dlg).value, q = parseNum($("#h-qty", dlg).value); const oz = okNum(q) ? ($("#h-unit", dlg).value === "g" ? q / OZ_G : q) : null; return {type: t, symbol: sym, name: METALS[sym].name, qty: oz}; }
     const sym = $("#h-sym", dlg).value.trim(); if (!sym) return null; const q = parseNum($("#h-qty", dlg).value);
-    return {type: t, symbol: sym, name: st.name || sym, isin: st.isin || "", logo: st.logo || "", qty: okNum(q) ? q : null};
+    const src = t === "crypto" ? (st.src === "dex" || isAddr(sym) ? "dex" : "cg") : "";
+    return {type: t, symbol: sym, name: st.name || sym, isin: st.isin || "", logo: st.logo || "", qty: okNum(q) ? q : null, ...(src ? {src} : {})};
   };
   const runSearch = debounce(async q => {
     const res = $("#h-res", dlg);
@@ -1609,7 +1680,7 @@ function holdingDialog(acc, h, done) {
       const list = await MARKET.search(q, st.type);
       res.innerHTML = list.length ? list.map((x, i) => `<button type="button" data-i="${i}"><span class="with-logo">${st.type === "crypto" ? logoBox(x.logo, x.name, "", true) : holdingLogo({type: "stock", symbol: x.symbol, name: x.name})}<span><b>${esc(x.name)}</b><br><small>${esc([x.ticker, x.type, x.exchange].filter(Boolean).join(" · "))}</small></span></span><small class="num">${esc(x.symbol)}</small></button>`).join("") : '<div style="padding:10px" class="muted">Keine Treffer.</div>';
       $$("button", res).forEach(b => b.onclick = () => {
-        const x = list[+b.dataset.i]; $("#h-sym", dlg).value = x.symbol; st.name = x.name; st.logo = x.logo || ""; if (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(q.trim())) st.isin = q.trim();
+        const x = list[+b.dataset.i]; $("#h-sym", dlg).value = x.symbol; st.name = x.name; st.logo = x.logo || ""; st.src = x.src || ""; if (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(q.trim())) st.isin = q.trim();
         res.hidden = true; $("#h-qty", dlg).focus(); check();
       });
     } catch { res.innerHTML = '<div style="padding:10px" class="neg">Suche gerade nicht erreichbar. Du kannst das Symbol auch direkt eintragen.</div>'; }
@@ -1617,6 +1688,8 @@ function holdingDialog(acc, h, done) {
   $("#h-q", dlg).oninput = e => runSearch(e.target.value.trim());
   ["#h-sym", "#h-qty", "#h-mt", "#h-unit", "#h-chain", "#h-addr"].forEach(s => $(s, dlg).addEventListener("change", check));
   if (!isNew) { check(); $("#h-sym", dlg).dataset.named = "1"; }
+  else if (preset && (preset.symbol || preset.type === "metal")) check();
+  if (preset?.chain) $("#h-chain", dlg).value = preset.chain;
   $("[data-del]", dlg)?.addEventListener("click", () => { acc.holdings = acc.holdings.filter(x => x.id !== h.id); save(true); dlg.close(); toast("Position entfernt"); done(); });
   $("#hf", dlg).onsubmit = e => {
     e.preventDefault();
@@ -1636,7 +1709,7 @@ function holdingDialog(acc, h, done) {
       const na = {id: slugId(cat, name), name, provider: name, cat, holdings: [], archived: false}; DB.accounts.push(na); finish(na);
     } else finish(accById(sel));
   };
-  setTimeout(() => (isNew ? $("#h-q", dlg) : $("#h-qty", dlg)).focus(), 30);
+  setTimeout(() => (isNew && !preset?.symbol ? $(preset?.type === "wallet" ? "#h-addr" : "#h-q", dlg) : $("#h-qty", dlg)).focus(), 30);
 }
 
 /** Paste a holdings list from online banking: ISIN + quantity per line. */
