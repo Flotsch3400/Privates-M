@@ -1427,7 +1427,7 @@ function holdingDialog(acc, h, done) {
     $("#h-sym-f", dlg).hidden = t === "metal" || t === "wallet";
     $("#h-qty-f", dlg).hidden = t === "wallet";
     $("#h-q-l", dlg).textContent = t === "crypto" ? "Kryptowährung suchen" : "Suche nach Name, Ticker, ISIN oder WKN";
-    $("#h-q", dlg).placeholder = t === "crypto" ? "z. B. Bitcoin, Ethereum, Solana" : "z. B. MSCI World, Apple, IE00BJ0KDQ92";
+    $("#h-q", dlg).placeholder = t === "crypto" ? "z. B. Bitcoin, Ethereum, Solana" : "z. B. MSCI World, Apple, IE00B4L5Y983";
     $("#h-qty-l", dlg).textContent = t === "metal" ? "Menge" : "Stückzahl";
     if (isNew && acc == null) {
       const want = {stock: "wertpapiere", crypto: "krypto", metal: "edelmetalle", wallet: "krypto"}[t];
@@ -1519,14 +1519,14 @@ function importDepotDialog(done) {
     <div class="dlg-b">
       <p class="sub" style="margin:0">Öffne die Depotübersicht bei Flatex (oder einem anderen Broker), markiere die Tabelle mit allen Positionen, kopiere sie und füge sie hier ein. Die App sucht in jeder Zeile die ISIN und die Stückzahl. Vor dem Übernehmen kannst du alles prüfen.</p>
       <div class="field"><label for="dp-acc">In welches Konto?</label><select class="input" id="dp-acc">${accs.map(a => `<option value="${a.id}">${esc(a.name)} · ${esc(catLabel(a.cat))}</option>`).join("")}</select></div>
-      <div class="field"><label for="dp-txt">Bestandsliste</label><textarea class="input" id="dp-txt" placeholder="Xtrackers MSCI World   IE00BJ0KDQ92   125 Stk.&#10;Apple Inc.   US0378331005   10"></textarea></div>
+      <div class="field"><label for="dp-txt">Bestandsliste</label><textarea class="input" id="dp-txt" placeholder="iShares Core MSCI World   IE00B4L5Y983   125 Stk.&#10;Apple Inc.   US0378331005   10"></textarea></div>
       <div id="dp-prev"></div>
     </div>
     <div class="dlg-f"><label class="check"><input type="checkbox" id="dp-repl"> Bestehende Positionen dieses Kontos ersetzen</label><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="button" id="dp-ok" disabled>Übernehmen</button></div></div>`, true);
   let rows = [];
   const drawPrev = () => {
     $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.symbol ? `<br><small class="muted">${esc(r.symbol)}</small>` : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
-      : $("#dp-txt", dlg).value.trim() ? '<p class="msg" style="margin:0">Keine ISIN gefunden. Jede Position braucht ihre 12-stellige ISIN, zum Beispiel IE00BJ0KDQ92.</p>' : "";
+      : $("#dp-txt", dlg).value.trim() ? '<p class="msg" style="margin:0">Keine ISIN gefunden. Jede Position braucht ihre 12-stellige ISIN, zum Beispiel IE00B4L5Y983.</p>' : "";
     $$("[data-q]", dlg).forEach(inp => inp.onchange = () => { const n = parseNum(inp.value); rows[+inp.dataset.q].qty = okNum(n) ? n : null; okBtn(); });
     okBtn();
   };
