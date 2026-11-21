@@ -302,6 +302,8 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .results small{color:var(--ink-3)}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.row4 label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .check{display:flex;align-items:center;gap:8px}
 .check input{accent-color:var(--brand);width:16px;height:16px}
 
@@ -368,7 +370,7 @@ dialog::backdrop{background:rgba(11,15,26,.55);backdrop-filter:blur(2px)}
 .stat{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-s);display:grid;gap:2px;min-width:0}
 .stat b{font-size:19px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat span{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (max-width: 760px){ .p-row{grid-template-columns:80px minmax(0,1fr) 36px} .p-row [data-rm]{order:3} .p-row .p-owes{order:4;grid-column:1/-1;text-align:left;margin-top:-4px} .row3.nums{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px} .row3.nums label{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
+@media (max-width: 760px){ .p-row{grid-template-columns:80px minmax(0,1fr) 36px} .p-row [data-rm]{order:3} .p-row .p-owes{order:4;grid-column:1/-1;text-align:left;margin-top:-4px} .row3.nums{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px} .row3.nums label{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .row4{grid-template-columns:1fr 1fr;gap:10px} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
 
 /* ---------- responsive ---------- */
 @media (max-width: 1080px){
@@ -423,7 +425,9 @@ button,a,input,select,label{-webkit-tap-highlight-color:transparent;touch-action
   .seg button{height:34px}
   .p-row input,.m-row input{height:44px}
   /* dialogs become bottom sheets */
-  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;border-bottom:0;max-height:92dvh;padding-bottom:env(safe-area-inset-bottom,0px);animation:sheet .22s ease-out}
+  dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:20px 20px 0 0;border-bottom:0;max-height:92dvh;padding-bottom:env(safe-area-inset-bottom,0px)}
+  dialog[open]{animation:sheet .26s cubic-bezier(.2,.8,.2,1)}
+  dialog .dlg-h{touch-action:none}
   dialog.wide{width:100%}
   dialog .dlg-h{position:sticky;top:0;background:var(--surface);z-index:2;padding-top:18px}
   dialog .dlg-h::before{content:"";position:absolute;left:50%;top:7px;width:40px;height:5px;border-radius:3px;background:var(--line-2);transform:translateX(-50%)}
@@ -432,6 +436,21 @@ button,a,input,select,label{-webkit-tap-highlight-color:transparent;touch-action
   .hero-total{font-size:42px}
 }
 @keyframes sheet{from{transform:translateY(40px);opacity:.6}to{transform:none;opacity:1}}
+/* ---------- motion ---------- */
+#view.enter{animation:viewIn .24s cubic-bezier(.2,.7,.2,1)}
+@keyframes viewIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.chart path.draw{stroke-dasharray:1;stroke-dashoffset:1;animation:draw .8s cubic-bezier(.3,.7,.2,1) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+dialog[open]{animation:dlgIn .18s cubic-bezier(.2,.7,.2,1)}
+@keyframes dlgIn{from{opacity:0;transform:translateY(8px) scale(.985)}to{opacity:1;transform:none}}
+dialog[open]::backdrop{animation:fadeIn .18s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.toast{animation:toastIn .22s cubic-bezier(.2,.7,.2,1)}
+@keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.btn:active:not(:disabled),.seg button:active,.tabbar a:active,.nav a:active,.src-chip:active{transform:scale(.97)}
+.btn,.seg button,.tabbar a,.nav a{transition:background .12s,border-color .12s,box-shadow .12s,transform .08s}
+.card,.kpi{transition:border-color .15s,box-shadow .15s}
+html{scroll-behavior:smooth}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 </style>
 </head>
@@ -616,7 +635,7 @@ function migrate() {
 }
 /** quiet: store locally only (e.g. refreshed prices), do not trigger a sync. */
 function save(immediate, quiet) {
-  clearTimeout(saveTimer);
+  clearTimeout(saveTimer); TOT_CACHE = new WeakMap();
   DB.snapshots.sort((a, b) => a.date.localeCompare(b.date));
   const run = async () => {
     if (MODE === "server") {
@@ -740,7 +759,7 @@ const Sync = {
   },
   apply(data, updatedAt) {
     applyingRemote = true;
-    DB = data; migrate(); try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch {}
+    DB = data; migrate(); TOT_CACHE = new WeakMap(); try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch {}
     applyingRemote = false;
     Object.assign(this.state, {lastRemote: updatedAt, lastSyncAt: new Date().toISOString(), dirty: false}); this.persist(); this.showOk();
     if (!dlg.open) go();
@@ -781,9 +800,12 @@ const catLabel = key => DB.categories.find(c => c.key === key)?.label || key;
 const accById = id => DB.accounts.find(a => a.id === id);
 const latest = () => DB.snapshots.at(-1);
 const total = s => s ? Object.values(s.values).reduce((a, b) => a + (+b || 0), 0) : 0;
+let TOT_CACHE = new WeakMap();
 function catTotals(s) {
+  if (s && TOT_CACHE.has(s)) return TOT_CACHE.get(s);
   const out = Object.fromEntries(DB.categories.map(c => [c.key, 0]));
   if (!s) return out;
+  TOT_CACHE.set(s, out);
   for (const [id, v] of Object.entries(s.values)) { const a = accById(id); if (a) out[a.cat] = (out[a.cat] || 0) + (+v || 0); }
   return out;
 }
@@ -1133,7 +1155,7 @@ async function celebrate(title, sub, big) {
 }
 
 /* ================= Router ================= */
-let route = "uebersicht", editId = null, resizeFns = [];
+let route = "uebersicht", editId = null, resizeFns = [], animateCharts = false;
 function renderNav() {
   let grp = "";
   $("#nav").innerHTML = NAV.map(([k, label, icon, , g]) => (g !== grp ? `<div class="nav-group">${grp = g}</div>` : "") + `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("");
@@ -1155,7 +1177,9 @@ function go() {
   if (dlg.open) dlg.close();
   renderNav(); onQuotes = () => {}; resizeFns = [];
   const v = $("#view"); v.innerHTML = "";
+  animateCharts = !reduced(); clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
   VIEWS[route](v);
+  v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter");
   window.scrollTo(0, 0);
 }
 window.addEventListener("hashchange", go);
@@ -1207,7 +1231,7 @@ function lineChart(el, {dates, series, area = false, tipTitle, tipTotal}) {
       s += `<defs><linearGradient id="${gid}" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${se.color}" stop-opacity=".28"/><stop offset="1" stop-color="${se.color}" stop-opacity="0"/></linearGradient></defs>`;
       s += `<path d="${d}L${valid.at(-1)[0]},${base}L${valid[0][0]},${base}Z" fill="url(#${gid})" stroke="none"/>`;
     }
-    s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${se.dash ? ' stroke-dasharray="5 4"' : ""}/>`;
+    s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"${se.dash ? ' stroke-dasharray="5 4"' : animateCharts ? ' pathLength="1" class="draw"' : ""}/>`;
     if (valid.length && series.length === 1) s += `<circle cx="${valid.at(-1)[0]}" cy="${valid.at(-1)[1]}" r="4.5" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`;
   });
   s += `<g class="hov" style="display:none"><line y1="${m.t}" y2="${H - m.b}" stroke="var(--ink-3)" stroke-dasharray="3 3" stroke-width="1"/>${series.map(se => `<circle r="4.5" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`).join("")}</g>`;
@@ -1422,7 +1446,15 @@ VIEWS.uebersicht = v => {
   };
   paintLive(); onQuotes = paintLive;
   $("#btn-q")?.addEventListener("click", () => refreshQuotes(false));
+  if (!countedUp && !reduced()) {
+    countedUp = true;
+    const el = $(".hero-total"), t0 = performance.now(), from = tot * .96;
+    const step = t => { const k = Math.min(1, (t - t0) / 650), e = 1 - Math.pow(1 - k, 3), [w, c] = eur(from + (tot - from) * e).split(",");
+      if (el.isConnected) el.innerHTML = `${esc(w)}<span class="cents">,${esc(c)}</span>`; if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
 };
+let countedUp = false;
 const kpi = (l, val, d, icon) => `<div class="kpi"><div class="kh">${icon ? `<span class="kic">${icon}</span>` : ""}<span class="eyebrow">${l}</span></div><div class="v num">${val}</div><div class="d num">${d}</div></div>`;
 
 /* ================= View: Bewertung ================= */
@@ -1759,8 +1791,12 @@ const orderCalc = o => {
     const fee = +o.fee || 0, n = ps.length + 1, feeShare = fee / n, E = +o.own || 0;
     const owes = ps.map(x => round2((+x.food || 0) + feeShare));
     const B = round2(E + ps.reduce((t, x) => t + (+x.food || 0), 0) + fee);
-    const myShare = E + feeShare, fromColleagues = owes.reduce((a, b) => a + b, 0), cost = B * (1 - d);
-    return {B, E, d, fee, feeShare, owes, myShare, fromColleagues, cost, profit: fromColleagues - (cost - myShare * (1 - d)), saving: myShare * d};
+    const myShare = E + feeShare, fromColleagues = owes.reduce((a, b) => a + b, 0);
+    /* Paid with a voucher of value V bought at discount d; anything above V is paid at full price.
+       The saving is spread evenly over the order, so colleagues' share earns the same effective discount. */
+    const V = o.voucher != null && o.voucher !== "" ? Math.min(Math.max(+o.voucher || 0, 0), B) : B;
+    const cost = V * (1 - d) + (B - V), eff = B ? (B - cost) / B : 0;
+    return {B, E, d, V, rest: B - V, eff, fee, feeShare, owes, myShare, fromColleagues, cost, profit: fromColleagues * eff, saving: myShare * eff};
   }
   const B = +o.total || 0, E = Math.min(+o.own || 0, B);
   const owes = ps.map(x => x.amount != null ? +x.amount : ps.length ? round2((B - E) / ps.length) : 0);
@@ -2053,9 +2089,10 @@ function orderDialog(o, done) {
     <div class="dlg-b">
       <div class="row2"><div class="field"><label for="o-d">Datum</label><input class="input" type="date" id="o-d" value="${o?.date || defaultDate()}"></div>
         <div class="field"><label for="o-r">Restaurant</label><div class="combo"><input class="input" id="o-r" value="${esc(o?.restaurant || "")}" placeholder="Restaurant wählen oder neu eingeben" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="o-rlist"><div class="combo-list" id="o-rlist" role="listbox" hidden></div></div></div></div>
-      <div class="row3 nums"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
+      <div class="row4 nums"><div class="field"><label for="o-e">Mein Essen</label><input class="input n" id="o-e" inputmode="decimal" value="${o ? fmtN.format(o.own || 0) : ""}" placeholder="0,00"></div>
         <div class="field"><label for="o-f">Liefergebühr</label><input class="input n" id="o-f" inputmode="decimal" value="${o ? fmtN.format(o.fee ?? 0) : lastFee != null ? fmtN.format(lastFee) : ""}" placeholder="0,00"></div>
-        <div class="field"><label for="o-p">Rabatt Guthaben %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
+        <div class="field"><label for="o-v">Gutschein eingesetzt</label><input class="input n" id="o-v" inputmode="decimal" value="${o?.voucher != null ? fmtN.format(o.voucher) : ""}" placeholder="ganze Bestellung"></div>
+        <div class="field"><label for="o-p">Rabatt auf Gutschein %</label><input class="input n" id="o-p" inputmode="decimal" value="${((o?.discount ?? S_.discount) * 100).toLocaleString("de-DE", {maximumFractionDigits: 2})}"></div></div>
       ${isNew && templates.length ? `<div class="field"><span class="lbl">Wie letztes Mal</span><div class="actions">${templates.map((t_, i) => `<button class="btn sm" type="button" data-tpl="${i}">${esc(t_.restaurant || "Lieferando")} <span class="muted">· ${t_.participants.map(z => z.code).join(" ") || "allein"}</span></button>`).join("")}</div></div>` : ""}
       <div class="field"><span class="lbl">Mitbesteller</span>
         <div id="o-rows" style="display:grid;gap:6px"></div>
@@ -2085,14 +2122,17 @@ function orderDialog(o, done) {
     calc();
   };
   const read = () => ({date: $("#o-d", dlg).value, restaurant: $("#o-r", dlg).value.trim(), own: round2(parseNum($("#o-e", dlg).value) || 0), fee: round2(parseNum($("#o-f", dlg).value) || 0),
-    discount: (parseNum($("#o-p", dlg).value) || 0) / 100, participants: rows.filter(r => r.code).map(r => ({code: r.code, food: round2(r.food || 0), paid: !!r.paid, ...(r.paidAt ? {paidAt: r.paidAt} : {})}))});
+    discount: (parseNum($("#o-p", dlg).value) || 0) / 100, voucher: (() => { const v = parseNum($("#o-v", dlg).value); return okNum(v) && $("#o-v", dlg).value.trim() ? round2(v) : null; })(), participants: rows.filter(r => r.code).map(r => ({code: r.code, food: round2(r.food || 0), paid: !!r.paid, ...(r.paidAt ? {paidAt: r.paidAt} : {})}))});
   const calc = () => {
     const r = read(), c = orderCalc(r);
     rows.forEach((row, i) => { const el = $(`[data-o="${i}"]`, box); if (!el) return; const k = r.participants.findIndex(p => p.code === row.code); el.textContent = row.code && k >= 0 ? "zahlt " + eurPlain(c.owes[k]) : ""; });
     const dup = r.participants.map(p => p.code).filter((c_, i, a) => a.indexOf(c_) !== i);
     $("#o-calc", dlg).innerHTML = `<div class="r"><span>Gesamtbetrag der Bestellung</span><b class="num">${eur(c.B)}</b></div>
       <div class="r"><span>Liefergebühr je Person (${r.participants.length + 1})</span><span class="num">${eur(c.feeShare)}</span></div>
-      <div class="r"><span>Echte Kosten mit ${fmtPs.format(c.d)} Rabatt</span><span class="num">${eur(c.cost)}</span></div>
+      <div class="r"><span>Mit Gutschein bezahlt (${fmtPs.format(c.d)} Rabatt)</span><span class="num">${eur(c.V)} → ${eur(c.V * (1 - c.d))}</span></div>
+      ${c.rest > 0.004 ? `<div class="r"><span>Rest normal bezahlt</span><span class="num">${eur(c.rest)}</span></div>` : ""}
+      ${(() => { const v = parseNum($("#o-v", dlg).value); return okNum(v) && v > c.B + 0.004 ? `<span class="warn" style="font-size:12.5px;color:var(--warn)">Der Gutschein ist höher als die Bestellung. Gerechnet wird mit ${eur(c.B)}.</span>` : ""; })()}
+      <div class="r"><span>Echte Kosten</span><span class="num">${eur(c.cost)}</span></div>
       <div class="r"><span>Bekommst du von Kollegen</span><span class="num">${eur(c.fromColleagues)}</span></div>
       <div class="r total"><span>Gewinn mit dieser Bestellung</span><span class="num ${cls(c.profit)}">${sEur(c.profit)}</span></div>
       ${dup.length ? `<span class="neg" style="font-size:12.5px">Kürzel doppelt: ${esc(dup.join(", "))}</span>` : ""}`;
@@ -2107,7 +2147,7 @@ function orderDialog(o, done) {
     drawRows(); $("#o-e", dlg).focus();
   });
   $$("[data-code]", dlg).forEach(b => b.onclick = () => { if (rows.some(r => r.code === b.dataset.code)) return; const empty = rows.find(r => !r.code); if (empty) empty.code = b.dataset.code; else rows.push({code: b.dataset.code, food: null}); drawRows(true); });
-  ["#o-e", "#o-f", "#o-p"].forEach(sel => $(sel, dlg).addEventListener("input", calc));
+  ["#o-e", "#o-f", "#o-p", "#o-v"].forEach(sel => $(sel, dlg).addEventListener("input", calc));
   $("#o-e", dlg).addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const f = $('.p-row [data-f="' + (rows[0]?.code ? "food" : "code") + '"]', box); f ? f.focus() : $("#o-f", dlg).focus(); });
   if (!rows.length) rows.push({code: "", food: null});
   drawRows();
@@ -2144,8 +2184,8 @@ function comboBox(inp, list, items, onPick, noun = "Eintrag", openOnFocus = true
     opts = [...hits, ...(q && !exact ? [{name: q, add: true}] : [])];
     if (!opts.length) list.innerHTML = `<div class="hint" style="padding:10px">Noch nichts gespeichert. Einfach den Namen eintippen.</div>`;
     else list.innerHTML = opts.map((x, i) => x.add
-      ? `<button type="button" role="option" data-i="${i}" aria-selected="${i === sel}"><span class="type-ic" style="--tc:var(--brand)">${I.plus}</span><span class="add">„${esc(x.name)}“ als ${noun} hinzufügen</span><span></span></button>`
-      : `<button type="button" role="option" data-i="${i}" aria-selected="${i === sel}">${x.logo ?? logoBox("", x.name, "sm")}<span>${esc(x.name)}</span><small class="num">${esc(x.sub || "")}</small></button>`).join("");
+      ? `<button type="button" tabindex="-1" role="option" data-i="${i}" aria-selected="${i === sel}"><span class="type-ic" style="--tc:var(--brand)">${I.plus}</span><span class="add">„${esc(x.name)}“ als ${noun} hinzufügen</span><span></span></button>`
+      : `<button type="button" tabindex="-1" role="option" data-i="${i}" aria-selected="${i === sel}">${x.logo ?? logoBox("", x.name, "sm")}<span>${esc(x.name)}</span><small class="num">${esc(x.sub || "")}</small></button>`).join("");
     list.hidden = false; inp.setAttribute("aria-expanded", "true");
     $$("button", list).forEach(b => b.onmousedown = e => { e.preventDefault(); pick(+b.dataset.i); });
   };
@@ -2789,7 +2829,18 @@ function download(name, text, type) {
 
 /* ================= Dialogs ================= */
 const dlg = $("#dlg");
-function openDlg(html, wide) { dlg.className = wide ? "wide" : ""; dlg.innerHTML = html; if (!dlg.open) dlg.showModal(); $$("[data-x]", dlg).forEach(b => b.onclick = () => dlg.close()); }
+function openDlg(html, wide) {
+  dlg.className = wide ? "wide" : ""; dlg.innerHTML = html; dlg.style.transform = "";
+  if (!dlg.open) dlg.showModal();
+  $$("[data-x]", dlg).forEach(b => b.onclick = () => dlg.close());
+  const head = $(".dlg-h", dlg);
+  if (head && window.matchMedia("(max-width: 760px)").matches) {
+    let y0 = null, dy = 0;
+    head.addEventListener("touchstart", e => { y0 = e.touches[0].clientY; dy = 0; dlg.style.transition = "none"; }, {passive: true});
+    head.addEventListener("touchmove", e => { if (y0 == null) return; dy = Math.max(0, e.touches[0].clientY - y0); dlg.style.transform = `translateY(${dy}px)`; }, {passive: true});
+    head.addEventListener("touchend", () => { dlg.style.transition = "transform .18s ease-out"; if (dy > 90) { dlg.style.transform = "translateY(100%)"; setTimeout(() => dlg.close(), 160); } else dlg.style.transform = ""; y0 = null; });
+  }
+}
 dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
 function confirmDialog(title, text, cta, onOk, danger = true) {
   openDlg(`<div class="dlg-h"><h2>${esc(title)}</h2></div><div class="dlg-b"><p style="margin:0" class="sub">${esc(text)}</p></div>
