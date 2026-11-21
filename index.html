@@ -1682,7 +1682,7 @@ function entryDialog(type, e, done) {
     if (isNew) DB.income.entries.push({id: "i" + uid(), ...rec}); else Object.assign(e, rec);
     incMonth = monthOf(d); save(true); dlg.close(); toast(isNew ? `${t.label} gespeichert` : "Änderung gespeichert"); done();
   };
-  setTimeout(() => $("#e-a", dlg).focus(), 30);
+  $("#e-a", dlg).focus();
 }
 const parseCodes = str => String(str || "").toUpperCase().split(/[\s;]+/).flatMap(t => /[:=]/.test(t) ? [t] : t.split(",")).filter(Boolean).map(tok => {
   const m = tok.match(/^([A-ZÄÖÜ]{2,4})(?::|=)?([\d.,]+)?$/);
@@ -1731,7 +1731,7 @@ function orderDialog(o, done) {
     DB.income.settings.discount = r.discount;
     incMonth = monthOf(r.date); save(true); dlg.close(); toast(`Bestellung gespeichert · Gewinn ${eur(orderCalc(r).profit)}`); done();
   };
-  setTimeout(() => $(isNew ? "#o-r" : "#o-b", dlg).focus(), 30);
+  $(isNew ? "#o-r" : "#o-b", dlg).focus();
 }
 function dealDialog(x, done) {
   const isNew = !x;
@@ -1765,7 +1765,7 @@ function dealDialog(x, done) {
     if (r.sellDate) incMonth = monthOf(r.sellDate);
     save(true); dlg.close(); toast(r.sellPrice == null ? "Deal angelegt" : `Deal gespeichert · ${sEur(dealProfit(r))}`); done();
   };
-  setTimeout(() => $("#x-i", dlg).focus(), 30);
+  $("#x-i", dlg).focus();
 }
 VIEWS.krypto = v => catView(v, "krypto");
 
@@ -2056,7 +2056,7 @@ function accountDialog(acc, done) {
     if (isNew) { a.id = slugId(a.cat, a.name); DB.accounts.push(a); } else Object.assign(acc, a);
     save(true); dlg.close(); toast(isNew ? "Konto angelegt" : "Konto gespeichert"); setLiveStatus(); done(isNew ? a : acc);
   };
-  setTimeout(() => $("#a-name", dlg).focus(), 30);
+  $("#a-name", dlg).focus();
 }
 
 /** Add or edit one live position (share/ETF, crypto, precious metal, wallet). */
@@ -2162,7 +2162,7 @@ function holdingDialog(acc, h, done, preset) {
       const na = {id: slugId(cat, name), name, provider: name, cat, holdings: [], archived: false}; DB.accounts.push(na); finish(na);
     } else finish(accById(sel));
   };
-  setTimeout(() => (isNew && !preset?.symbol ? $(preset?.type === "wallet" ? "#h-addr" : "#h-q", dlg) : $("#h-qty", dlg)).focus(), 30);
+  (isNew && !preset?.symbol ? $(preset?.type === "wallet" ? "#h-addr" : "#h-q", dlg) : $("#h-qty", dlg)).focus();
 }
 
 /** Paste a holdings list from online banking: ISIN + quantity per line. */
