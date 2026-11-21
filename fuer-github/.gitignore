@@ -1,0 +1,6 @@
+# Persönliche Vermögensdaten – niemals ins Repository
+data.json
+data.json.tmp
+backups/
+__pycache__/
+.DS_Store
