@@ -858,21 +858,22 @@ const Lock = {
     const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
     return b64(await crypto.subtle.deriveBits({name: "PBKDF2", salt: unb64(salt), iterations: 200000, hash: "SHA-256"}, base, 256));
   },
-  async enable(pin, after) {
-    let credId = null;
-    if (await this.supported()) {
-      const cred = await navigator.credentials.create({publicKey: {
-        challenge: crypto.getRandomValues(new Uint8Array(32)), rp: {name: "Tracky"},
-        user: {id: crypto.getRandomValues(new Uint8Array(16)), name: "Tracky", displayName: "Tracky"},
-        pubKeyCredParams: [{type: "public-key", alg: -7}, {type: "public-key", alg: -257}],
-        authenticatorSelection: {authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged"}, timeout: 60000}});
-      credId = b64(cred.rawId);
-    }
+  /** Websites may use Face ID / Touch ID only through a passkey (WebAuthn). It is named so it is easy to recognise in the Passwords app. */
+  async createPasskey() {
+    const cred = await navigator.credentials.create({publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)), rp: {name: "Tracky App-Sperre"},
+      user: {id: crypto.getRandomValues(new Uint8Array(16)), name: "Tracky App-Sperre", displayName: "Tracky App-Sperre"},
+      pubKeyCredParams: [{type: "public-key", alg: -7}, {type: "public-key", alg: -257}],
+      authenticatorSelection: {authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged"}, timeout: 60000}});
+    return b64(cred.rawId);
+  },
+  async enable(pin, after, useBio = true) {
+    const credId = useBio && await this.supported() ? await this.createPasskey() : null;
     const salt = b64(crypto.getRandomValues(new Uint8Array(16)));
     this.cfg = {credId, salt, pinHash: await this.pinHash(pin, salt), after};
   },
   disable() { this.cfg = null; },
-  show() {
+  show(auto = false) {
     if (!this.on()) return;
     if (dlg.open) dlg.close();
     const c = this.cfg, el = $("#lock");
@@ -880,14 +881,19 @@ const Lock = {
     $("#lock-bio").hidden = !c.credId; $("#lock-bio").innerHTML = `${I.lockIc} ${/Mac|iPhone|iPad/.test(navigator.userAgent) ? (/iPhone|iPad/.test(navigator.userAgent) ? "Mit Face ID entsperren" : "Mit Touch ID entsperren") : "Entsperren"}`;
     $("#lock-pinf").hidden = !!c.credId; $("#lock-usepin").hidden = !c.credId; $("#lock-msg").textContent = "";
     if (!c.credId) $("#lock-pin").focus();
+    else if (auto) this.bio(true);
   },
   hide() { $("#lock").hidden = true; document.body.classList.remove("locked"); store.set("tracky-unlocked-at", Date.now()); },
-  async bio() {
+  async bio(auto = false) {
     const c = this.cfg, msg = $("#lock-msg");
+    if (this.busy) return; this.busy = true;
     try {
       await navigator.credentials.get({publicKey: {challenge: crypto.getRandomValues(new Uint8Array(32)), allowCredentials: [{type: "public-key", id: unb64(c.credId)}], userVerification: "required", timeout: 60000}});
       this.hide();
-    } catch (e) { msg.textContent = e?.name === "NotAllowedError" ? "Abgebrochen. Nochmal versuchen oder PIN verwenden." : "Entsperren nicht möglich. Bitte PIN verwenden."; }
+    } catch (e) {
+      /* An automatic attempt may be refused by the browser (no tap yet) – then the button simply stays. */
+      if (!auto) msg.textContent = e?.name === "NotAllowedError" ? "Abgebrochen. Nochmal versuchen oder PIN verwenden." : "Entsperren nicht möglich. Bitte PIN verwenden.";
+    } finally { this.busy = false; }
   },
   async pin(pin) {
     const c = this.cfg;
@@ -902,9 +908,9 @@ const Lock = {
     document.addEventListener("visibilitychange", () => {
       if (!this.on()) return;
       if (document.visibilityState === "hidden") hiddenAt = Date.now();
-      else if (hiddenAt && Date.now() - hiddenAt > (this.cfg.after ?? 60) * 1000) this.show();
+      else if (hiddenAt && Date.now() - hiddenAt > (this.cfg.after ?? 60) * 1000) this.show(true);
     });
-    if (this.on()) this.show(); else $("#lock").hidden = true;
+    if (this.on()) this.show(true); else $("#lock").hidden = true;
   },
 };
 
@@ -2936,18 +2942,26 @@ async function drawLockCard() {
         ${!sup ? `<p class="hint" style="margin:0">${bioName} ist in diesem Browser nicht verfügbar. Auf dem iPhone funktioniert es in der installierten Tracky-App.</p>` : ""}</div>`;
     $("#lock-on").onclick = () => {
       openDlg(`<form id="lf"><div class="dlg-h"><h2>App-Sperre einschalten</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
-        <div class="dlg-b"><p class="sub" style="margin:0">Leg zuerst eine PIN als Ersatz fest. ${sup ? `Danach fragt dein Gerät einmal nach ${bioName}.` : ""}</p>
+        <div class="dlg-b">${sup ? `<div class="seg" id="l-mode" role="group" aria-label="Art der Sperre"><button type="button" data-v="bio" aria-pressed="true">${bioName} + PIN</button><button type="button" data-v="pin" aria-pressed="false">Nur PIN</button></div>
+          <p class="sub" id="l-info" style="margin:0"></p>` : `<p class="sub" style="margin:0">Leg eine PIN fest.</p>`}
           <div class="row2"><div class="field"><label for="lp1">PIN (mind. 4 Ziffern)</label><input class="input n" id="lp1" type="password" inputmode="numeric" autocomplete="new-password" required></div>
             <div class="field"><label for="lp2">PIN wiederholen</label><input class="input n" id="lp2" type="password" inputmode="numeric" autocomplete="new-password" required></div></div>
           <div class="field"><label for="la">Sperren, wenn Tracky im Hintergrund war für</label><select class="input" id="la"><option value="0">sofort</option><option value="60" selected>1 Minute</option><option value="300">5 Minuten</option><option value="1800">30 Minuten</option></select></div>
           <div id="l-msg"></div></div>
         <div class="dlg-f"><span></span><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Einschalten</button></div></div></form>`);
+      let useBio = sup;
+      const info = () => { const el = $("#l-info", dlg); if (!el) return;
+        $$("#l-mode button", dlg).forEach(b => b.setAttribute("aria-pressed", (b.dataset.v === "bio") === useBio));
+        el.innerHTML = useBio ? `Websites dürfen ${bioName} nur über einen <b>Passkey</b> nutzen. Nach „Einschalten“ fragt dein Gerät einmal, ob der Passkey <b>„Tracky App-Sperre“</b> gesichert werden soll – einfach bestätigen. Er dient nur zum Entsperren, enthält keine Daten und liegt in der Passwörter-App. Danach reicht beim Öffnen ein Blick; die PIN ist der Ersatz.`
+          : "Kein Passkey: Tracky fragt beim Öffnen nur nach deiner PIN."; };
+      $$("#l-mode button", dlg).forEach(b => b.onclick = () => { useBio = b.dataset.v === "bio"; info(); });
+      info();
       $("#lf", dlg).onsubmit = async e => {
         e.preventDefault();
         const p1 = $("#lp1", dlg).value, p2 = $("#lp2", dlg).value, m = $("#l-msg", dlg);
         if (!/^\d{4,}$/.test(p1)) { m.innerHTML = '<div class="msg">Die PIN braucht mindestens 4 Ziffern.</div>'; return; }
         if (p1 !== p2) { m.innerHTML = '<div class="msg">Die PINs stimmen nicht überein.</div>'; return; }
-        try { await Lock.enable(p1, +$("#la", dlg).value); dlg.close(); toast("App-Sperre eingeschaltet"); drawLockCard(); }
+        try { await Lock.enable(p1, +$("#la", dlg).value, useBio); dlg.close(); toast("App-Sperre eingeschaltet"); drawLockCard(); }
         catch (err) { m.innerHTML = `<div class="msg">${esc(err?.name === "NotAllowedError" ? bioName + " wurde abgebrochen. Bitte nochmal versuchen." : "Einschalten nicht möglich: " + (err?.message || err))}</div>`; }
       };
       $("#lp1", dlg).focus();
@@ -2957,8 +2971,11 @@ async function drawLockCard() {
   const label = {0: "sofort", 60: "nach 1 Minute", 300: "nach 5 Minuten", 1800: "nach 30 Minuten"}[c.after] || "nach 1 Minute";
   el.innerHTML = `<div class="card-h"><h2 class="inl">${I.lockIc}App-Sperre</h2><span class="chip pos">aktiv</span></div>
     <div class="card-b" style="display:grid;gap:12px"><p class="sub" style="margin:0">${c.credId ? bioName + " und PIN" : "PIN"} · sperrt ${label} im Hintergrund und bei jedem Öffnen.</p>
-      <div class="actions"><button class="btn" type="button" id="lock-now">${I.lockIc} Jetzt sperren</button><button class="btn danger" type="button" id="lock-off">Ausschalten</button></div></div>`;
+      ${c.credId ? `<p class="hint" style="margin:0">${bioName} läuft über den Passkey „Tracky App-Sperre“ (Passwörter-App). Den kannst du jederzeit löschen – dann entsperrst du mit der PIN.</p>` : ""}
+      <div class="actions"><button class="btn" type="button" id="lock-now">${I.lockIc} Jetzt sperren</button>${c.credId ? `<button class="btn" type="button" id="lock-pinonly">Nur noch PIN</button>` : sup ? `<button class="btn" type="button" id="lock-addbio">${bioName} hinzufügen</button>` : ""}<button class="btn danger" type="button" id="lock-off">Ausschalten</button></div></div>`;
   $("#lock-now").onclick = () => Lock.show();
+  const pb = $("#lock-pinonly"); if (pb) pb.onclick = () => { const cf = Lock.cfg; cf.credId = null; Lock.cfg = cf; toast("Entsperren nur noch mit PIN. Den Passkey kannst du in der Passwörter-App löschen."); drawLockCard(); };
+  const ab = $("#lock-addbio"); if (ab) ab.onclick = async () => { try { const id = await Lock.createPasskey(); const cf = Lock.cfg; cf.credId = id; Lock.cfg = cf; toast(bioName + " hinzugefügt"); drawLockCard(); } catch (err) { toast(err?.name === "NotAllowedError" ? "Abgebrochen" : "Nicht möglich: " + (err?.message || err)); } };
   $("#lock-off").onclick = () => {
     openDlg(`<form id="lo"><div class="dlg-h"><h2>App-Sperre ausschalten</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
       <div class="dlg-b"><div class="field"><label for="lo-p">PIN zur Bestätigung</label><input class="input n" id="lo-p" type="password" inputmode="numeric" autocomplete="off" required></div><div id="lo-m"></div></div>
