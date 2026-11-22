@@ -1,0 +1,345 @@
+{
+ "version": 2,
+ "currency": "EUR",
+ "categories": [
+  {
+   "key": "liquiditaet",
+   "label": "Konten & Tagesgeld"
+  },
+  {
+   "key": "wertpapiere",
+   "label": "Aktien & ETFs"
+  },
+  {
+   "key": "edelmetalle",
+   "label": "Edelmetalle & Rohstoffe"
+  },
+  {
+   "key": "krypto",
+   "label": "Krypto"
+  },
+  {
+   "key": "bargeld",
+   "label": "Bargeld"
+  },
+  {
+   "key": "guthaben",
+   "label": "Guthaben & Gutscheine"
+  },
+  {
+   "key": "sachwerte",
+   "label": "Sachwerte"
+  },
+  {
+   "key": "kredite",
+   "label": "Kreditkarten & Kredite"
+  }
+ ],
+ "accounts": [
+  {
+   "id": "giro",
+   "name": "Girokonto Demo",
+   "provider": "Demobank",
+   "cat": "liquiditaet",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "tagesgeld",
+   "name": "Tagesgeld Demo",
+   "provider": "Demobank",
+   "cat": "liquiditaet",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "depot",
+   "name": "Depot Demo",
+   "provider": "Demobroker",
+   "cat": "wertpapiere",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "boerse",
+   "name": "Krypto-Börse Demo",
+   "provider": "Demo Exchange",
+   "cat": "krypto",
+   "holdings": [],
+   "archived": false,
+   "coin": {
+    "id": "bitcoin",
+    "name": "Bitcoin (BTC)"
+   }
+  },
+  {
+   "id": "gold",
+   "name": "Goldmünzen Demo",
+   "provider": "Goldmünzen Demo",
+   "cat": "edelmetalle",
+   "holdings": [
+    {
+     "id": "hgold",
+     "type": "metal",
+     "symbol": "XAU",
+     "name": "Gold (Feinunze)",
+     "qty": 1,
+     "lastPrice": 3000
+    }
+   ],
+   "archived": false
+  },
+  {
+   "id": "bar",
+   "name": "Bargeld Demo",
+   "provider": "Bargeld Demo",
+   "cat": "bargeld",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "gutschein",
+   "name": "Gutscheine Demo",
+   "provider": "Gutscheine Demo",
+   "cat": "guthaben",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "karte",
+   "name": "Kreditkarte Demo",
+   "provider": "Demobank",
+   "cat": "kredite",
+   "holdings": [],
+   "archived": false
+  },
+  {
+   "id": "alt",
+   "name": "Altes Konto Demo",
+   "provider": "Altbank",
+   "cat": "liquiditaet",
+   "holdings": [],
+   "archived": true
+  }
+ ],
+ "snapshots": [
+  {
+   "id": "s1",
+   "date": "2026-01-28",
+   "note": "",
+   "values": {
+    "giro": 2000.0,
+    "tagesgeld": 20000.0,
+    "depot": 30000.0,
+    "boerse": 5000.0,
+    "gold": 3000.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -400.0,
+    "alt": 500.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s2",
+   "date": "2026-02-28",
+   "note": "",
+   "values": {
+    "giro": 2150.0,
+    "tagesgeld": 20800.0,
+    "depot": 31200.0,
+    "boerse": 5700.0,
+    "gold": 3020.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -410.0,
+    "alt": 500.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s3",
+   "date": "2026-03-28",
+   "note": "",
+   "values": {
+    "giro": 2300.0,
+    "tagesgeld": 21600.0,
+    "depot": 32400.0,
+    "boerse": 6400.0,
+    "gold": 3040.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -420.0,
+    "alt": 500.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s4",
+   "date": "2026-04-28",
+   "note": "",
+   "values": {
+    "giro": 2450.0,
+    "tagesgeld": 22400.0,
+    "depot": 32700.0,
+    "boerse": 7100.0,
+    "gold": 3060.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -430.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s5",
+   "date": "2026-05-28",
+   "note": "",
+   "values": {
+    "giro": 2600.0,
+    "tagesgeld": 23200.0,
+    "depot": 33900.0,
+    "boerse": 5000.0,
+    "gold": 3080.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -440.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s6",
+   "date": "2026-06-28",
+   "note": "",
+   "values": {
+    "giro": 2750.0,
+    "tagesgeld": 24000.0,
+    "depot": 35100.0,
+    "boerse": 5700.0,
+    "gold": 3100.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -450.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s7",
+   "date": "2026-07-28",
+   "note": "",
+   "values": {
+    "giro": 2900.0,
+    "tagesgeld": 24800.0,
+    "depot": 35400.0,
+    "boerse": 6400.0,
+    "gold": 3120.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -460.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s8",
+   "date": "2026-08-28",
+   "note": "",
+   "values": {
+    "giro": 3050.0,
+    "tagesgeld": 25600.0,
+    "depot": 36600.0,
+    "boerse": 7100.0,
+    "gold": 3140.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -470.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s9",
+   "date": "2026-09-28",
+   "note": "",
+   "values": {
+    "giro": 3200.0,
+    "tagesgeld": 26400.0,
+    "depot": 37800.0,
+    "boerse": 5000.0,
+    "gold": 3160.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -480.0
+   },
+   "detail": {}
+  },
+  {
+   "id": "s10",
+   "date": "2026-10-28",
+   "note": "",
+   "values": {
+    "giro": 3350.0,
+    "tagesgeld": 27200.0,
+    "depot": 38100.0,
+    "boerse": 5700.0,
+    "gold": 3180.0,
+    "bar": 300.0,
+    "gutschein": 150.0,
+    "karte": -490.0
+   },
+   "detail": {}
+  }
+ ],
+ "plan": {
+  "targets": {
+   "liquiditaet": 0.4,
+   "wertpapiere": 0.4,
+   "edelmetalle": 0.05,
+   "krypto": 0.1,
+   "bargeld": 0.01,
+   "guthaben": 0.01,
+   "sachwerte": 0,
+   "kredite": -0.01
+  },
+  "milestones": [
+   50000,
+   75000,
+   100000
+  ],
+  "forecast": {
+   "wertpapiere": {
+    "rate": 0.07,
+    "monthly": 500
+   },
+   "liquiditaet": {
+    "rate": 0.02,
+    "monthly": 300
+   }
+  },
+  "years": 10,
+  "budget": {
+   "income": 3000,
+   "expenses": 1500
+  },
+  "cashflows": []
+ },
+ "lastQuotes": {},
+ "income": {
+  "entries": [],
+  "orders": [],
+  "deals": [],
+  "settings": {
+   "discount": 0.1,
+   "serviceRate": 0.025,
+   "serviceCap": 0.89,
+   "employer": "Demo GmbH",
+   "sources": {
+    "cashback": [
+     "Demo Cashback"
+    ],
+    "zinsen": [
+     "Demobank"
+    ],
+    "sonstiges": []
+   },
+   "sourceDomains": {}
+  }
+ }
+}

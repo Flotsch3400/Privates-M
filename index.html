@@ -1818,7 +1818,7 @@ VIEWS.depot = v => {
     const sug = suggestions(), L = latest();
     $("#d-sugg").innerHTML = sug.length ? `<div class="card"><div class="card-h"><h2>Live bewerten</h2><span class="muted" style="font-size:12.5px">${sug.length} ${sug.length > 1 ? "Konten" : "Konto"} mit passendem Coin oder Wallet</span></div>
       <div class="card-b" style="padding-top:8px"><p class="sub" style="margin:0 0 6px">Diese Konten bewertest du bisher von Hand. Ein Klick übernimmt den Coin, die Stückzahl wird aus dem letzten Stichtagswert und dem aktuellen Kurs berechnet. Du kannst sie vor dem Speichern anpassen.</p>
-      ${sug.map(a => { const q = QUOTES[coinKey(a)]; return `<div class="pos-row" style="align-items:center"><span class="nm">${accLogo(a, "lg")}<span>${esc(a.name)} <span class="muted" style="font-weight:400">· ${a.coin.wallet ? CHAINS[a.coin.wallet].name + "-Wallet" : esc(a.coin.name)}${q ? ` · ${fmtPx(q.priceEur)} €` : ""}</span></span></span>
+      ${sug.map(a => { const q = QUOTES[coinKey(a)]; return `<div class="pos-row" style="align-items:center"><span class="nm">${accLogo(a, "lg")}<span>${esc(a.name)} <span class="muted" style="font-weight:400">· ${a.coin.wallet ? CHAINS[a.coin.wallet].name + "-Wallet" : esc(a.coin.name)}${q ? ` · <span class="px">${fmtPx(q.priceEur)} €</span>` : ""}</span></span></span>
         <span class="r"><span class="num muted" style="margin-right:10px;font-weight:500">${L?.values[a.id] != null ? eur0(L.values[a.id]) : ""}</span><button class="btn sm primary" type="button" data-sug="${a.id}">${I.refresh} Live bewerten</button></span></div>`; }).join("")}</div></div>` : "";
     $$("[data-sug]").forEach(b => b.onclick = () => {
       const a = accById(b.dataset.sug);
@@ -1841,7 +1841,7 @@ VIEWS.depot = v => {
         ${a.holdings.map(h => { const x = hVal(h); return `<div class="h-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0">
           <span class="nm with-logo">${holdingLogo(h, "lg")}<span><b><span class="type-badge">${{stock: "Wertpapier", crypto: "Krypto", metal: "Metall", wallet: "Wallet"}[h.type]}</span>${esc(h.name || h.symbol)}</b><small>${esc(h.type === "wallet" ? CHAINS[h.chain]?.name + " · " + h.address.slice(0, 6) + "…" + h.address.slice(-4) : [h.symbol, h.isin].filter(Boolean).join(" · "))}${x.err && !x.fresh ? ` · <span class="neg">${esc(x.err)}</span>` : ""}</small></span></span>
           <span class="hide-sm num">${qtyTxt(x.qty)}${h.type === "metal" ? " oz" : ""}</span>
-          <span class="hide-sm num">${x.price != null ? fmtPx(x.price) + " €" : "–"}</span>
+          <span class="hide-sm num px">${x.price != null ? fmtPx(x.price) + " €" : "–"}</span>
           <span class="hide-sm num ${cls(x.change || 0)}">${x.change != null ? pct(x.change) : x.fresh ? "–" : '<span class="muted">alt</span>'}</span>
           <span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
       </div>`;

@@ -10,3 +10,8 @@ vermoegen-backup*.json
 *.xlsx
 *.xls
 *.csv
+
+# Tests
+node_modules/
+test-results/
+playwright-report/

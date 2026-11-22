@@ -1,0 +1,12 @@
+{
+  "name": "tracky",
+  "private": true,
+  "description": "Tracky – Dein Vermögen. Immer im Blick.",
+  "scripts": {
+    "test": "playwright test",
+    "serve": "node tests/server.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0"
+  }
+}

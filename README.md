@@ -41,3 +41,12 @@ Programmcode; `.gitignore` schließt Daten-, Backup- und Excel-Dateien aus. Unte
 ## Optional: lokal mit eigenem Server
 `python3 server.py` (oder `Start-Windows.bat` / `Start-Mac.command`) startet Tracky auf http://localhost:8765
 und speichert die Daten in `data.json` mit täglicher Sicherung unter `backups/`.
+
+## Automatische Tests
+Bei jedem Push prüft GitHub Actions (`.github/workflows/tests.yml`) die App mit Playwright – am Desktop und
+im iPhone-Format. Getestet werden u. a. alle Seiten, Stichtage, Lieferando-Rechnung (Servicegebühr, Gutschein,
+Teams-Texte), Einkommen und Sparquote, Einstand/Gewinn im Depot, Schnellsuche, Beträge ausblenden,
+verschlüsselter Geräte-Sync (mit nachgebildeter GitHub-API) und die App-Sperre (mit simuliertem Face ID).
+Die Tests verwenden ausschließlich die erfundenen Demodaten aus `tests/fixtures/demo-data.json` und gehen nicht ins Internet.
+
+Lokal: `npm install`, `npx playwright install chromium`, dann `npm test`.
