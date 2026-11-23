@@ -3393,7 +3393,8 @@ function platformDialog(key, done = () => go(true), focusId) {
         <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
       </div>`).join("")}
     </div>
-    <div class="dlg-f"><span></span><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
+    <div class="dlg-f"><button class="btn" type="button" id="pl-imp">${I.paste} Depot einfügen</button><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
+  $("#pl-imp", dlg).onclick = () => importDepotDialog(() => { done(); setTimeout(back, 30); }, (accs.find(a => a.id === focusId && ["wertpapiere", "edelmetalle"].includes(a.cat)) || accs.find(a => a.cat === "wertpapiere"))?.id);
   $$("[data-pcat]", dlg).forEach(b => b.onclick = () => {
     const cat = b.dataset.pcat, type = AUTO_TYPE[cat];
     if (type) holdingDialog(null, null, done, {type, platform: key, back});
@@ -3579,63 +3580,96 @@ function holdingDialog(acc, h, done, preset) {
 function parseDepotText(text) {
   const out = new Map(), lines = text.split(/\r?\n/);
   const num = s => parseNum(s);
+  let acct = null;
   lines.forEach((line, i) => {
+    const h = line.match(/^\s*(?:#+\s*)?Konto\s*:\s*(.+?)\s*$/i); if (h) { acct = h[1]; return; }
     const m = line.match(/\b([A-Z]{2}[A-Z0-9]{9}\d)\b/); if (!m) return;
     const isin = m[1];
     let rest = line.slice(m.index + isin.length);
     let cand = rest.match(/(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)\s*(?:Stk\.?|Stück|St\.)/i) || line.match(/(?:Stk\.?|Stück|St\.)\s*:?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)/i);
     if (!cand) { const nums = (rest.match(/-?\d{1,3}(?:\.\d{3})*(?:,\d+)?|-?\d+(?:[.,]\d+)?/g) || []).filter(x => !/^[A-Z0-9]{6}$/.test(x)); if (nums.length) cand = [null, nums[0]]; }
     if (!cand && lines[i + 1]) { const n2 = lines[i + 1].match(/(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:[.,]\d+)?)/); if (n2) cand = [null, n2[1]]; }
-    const name = line.slice(0, m.index).replace(/[\t|;]+/g, " ").trim() || (lines[i - 1] && !/\d{3}/.test(lines[i - 1]) ? lines[i - 1].trim() : "");
+    const name = line.slice(0, m.index).replace(/[\t|;]+/g, " ").trim() || (lines[i - 1] && !/\d{3}/.test(lines[i - 1]) && !/^\s*(?:#+\s*)?Konto\s*:/i.test(lines[i - 1]) ? lines[i - 1].trim() : "");
     const q = cand ? num(cand[1]) : null;
     const cm = line.match(/(?:Einstand(?:skurs)?|Kaufkurs|Ø\s*Kurs)\s*:?\s*(?:€|EUR)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)/i);
     const c = cm ? num(cm[1]) : null;
-    out.set(isin, {isin, name, qty: okNum(q) ? q : null, ...(okNum(c) && c > 0 ? {costPer: c} : {})});
+    out.set(isin, {isin, name, qty: okNum(q) ? q : null, ...(okNum(c) && c > 0 ? {costPer: c} : {}), ...(acct ? {acct} : {})});
   });
   return [...out.values()];
 }
-function importDepotDialog(done) {
+/** "Trade Republic · Edelmetalle" → that account; {create} when the platform exists but not this area yet; null if unknown. */
+function depotTarget(label) {
+  if (!label) return null;
+  const [pl, ca] = label.split(/\s*[·|\/–-]\s*(?=[^·|\/–-]*$)/), np = norm(pl), nc = norm(ca || "");
+  const p = platforms().find(x => norm(x.name) === np) || platforms().find(x => norm(x.name).startsWith(np) || np.startsWith(norm(x.name)));
+  const cat = nc ? DB.categories.find(c => norm(c.label).startsWith(nc) || nc.startsWith(norm(c.label).split(/[^a-z0-9]+/)[0])) : DB.categories.find(c => c.key === "wertpapiere");
+  if (!p || !cat) return null;
+  const a = p.accs.find(x => x.cat === cat.key && !x.archived);
+  return a ? {id: a.id, label: `${a.name} · ${catLabel(a.cat)}`} : {create: {plat: p, cat: cat.key}, label: `${p.name} · ${cat.label} (wird angelegt)`};
+}
+function importDepotDialog(done, preAcc) {
   const accs = DB.accounts.filter(a => !a.archived && (["wertpapiere", "edelmetalle"].includes(a.cat) || isLive(a)));
   openDlg(`<div class="dlg-h"><h2>Depot einfügen</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <p class="sub" style="margin:0">Öffne die Depotübersicht bei Flatex (oder einem anderen Broker), markiere die Tabelle mit allen Positionen, kopiere sie und füge sie hier ein. Die App sucht in jeder Zeile die ISIN und die Stückzahl, optional auch den Einstandskurs („Einstand 56,08“). Vor dem Übernehmen kannst du alles prüfen.</p>
-      <div class="field"><label for="dp-acc">In welches Konto?</label><select class="input" id="dp-acc">${accs.map(a => `<option value="${a.id}">${esc(a.name)} · ${esc(catLabel(a.cat))}</option>`).join("")}</select></div>
-      <div class="field"><label for="dp-txt">Bestandsliste</label><textarea class="input" id="dp-txt" placeholder="iShares Core MSCI World   IE00B4L5Y983   125 Stk.&#10;Apple Inc.   US0378331005   10"></textarea></div>
+      <div class="field"><label for="dp-acc">In welches Konto?</label><select class="input" id="dp-acc">${accs.map(a => `<option value="${a.id}" ${a.id === preAcc ? "selected" : ""}>${esc(a.name)} · ${esc(catLabel(a.cat))}</option>`).join("")}</select>
+        <span class="hint">Eine Zeile „Konto: Trade Republic · Edelmetalle“ schickt die Positionen darunter in ein anderes Konto.</span></div>
+      <div class="field"><span class="lbl" style="display:flex;justify-content:space-between;align-items:center;gap:8px"><label for="dp-txt">Bestandsliste</label><button class="btn sm" type="button" id="dp-paste">${I.paste} Aus Zwischenablage einfügen</button></span><textarea class="input" id="dp-txt" placeholder="iShares Core MSCI World   IE00B4L5Y983   125 Stk.&#10;Apple Inc.   US0378331005   10"></textarea></div>
       <div id="dp-prev"></div>
     </div>
-    <div class="dlg-f"><label class="check"><input type="checkbox" id="dp-repl"> Bestehende Positionen dieses Kontos ersetzen</label><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="button" id="dp-ok" disabled>Übernehmen</button></div></div>`, true);
+    <div class="dlg-f"><label class="check"><input type="checkbox" id="dp-repl"> Bestehende Positionen der Zielkonten ersetzen</label><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="button" id="dp-ok" disabled>Übernehmen</button></div></div>`, true);
   let rows = [];
   const drawPrev = () => {
-    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.costPer ? ` <small class="muted num">· Einstand ${fmtN.format(r.costPer)} €</small>` : ""}${r.symbol ? (r.symbol !== r.isin ? `<br><small class="muted">${esc(r.symbol)}</small>` : "") : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
+    let lastT = null;
+    const head = r => { const t = r.target?.label || (r.acct ? `„${r.acct}“ nicht gefunden – kommt ins gewählte Konto` : "Gewähltes Konto"); if (!rows.some(x => x.acct) || t === lastT) return ""; lastT = t; return `<tr><td colspan="4" style="white-space:normal"><b>→ ${esc(t)}</b></td></tr>`; };
+    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `${head(r)}<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.costPer ? ` <small class="muted num">· Einstand ${fmtN.format(r.costPer)} €</small>` : ""}${r.symbol ? (r.symbol !== r.isin ? `<br><small class="muted">${esc(r.symbol)}</small>` : "") : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
       : $("#dp-txt", dlg).value.trim() ? '<p class="msg" style="margin:0">Keine ISIN gefunden. Jede Position braucht ihre 12-stellige ISIN, zum Beispiel IE00B4L5Y983.</p>' : "";
     $$("[data-q]", dlg).forEach(inp => inp.onchange = () => { const n = parseNum(inp.value); rows[+inp.dataset.q].qty = okNum(n) ? n : null; okBtn(); });
     okBtn();
   };
   const okBtn = () => { $("#dp-ok", dlg).disabled = !rows.some(r => r.symbol && r.qty > 0); };
   const resolve = debounce(async () => {
-    rows = parseDepotText($("#dp-txt", dlg).value).map(r => ({...r, state: "busy"})); drawPrev();
-    for (const r of rows) {
+    rows = parseDepotText($("#dp-txt", dlg).value).map(r => ({...r, target: depotTarget(r.acct), state: "busy"})); drawPrev();
+    const mine = rows, queue = [...rows];
+    await Promise.all(Array.from({length: 6}, async () => { for (let r; (r = queue.shift());) {
+      if (rows !== mine) return;
       try {
         const list = await MARKET.search(r.isin, "stock");
         const x = list.length ? pickListing(list) : null;
         if (x) { r.symbol = x.symbol; r.ov = x.ov; r.name = r.name || x.name; r.state = "ok"; try { const j = await MARKET.quotes([{type: "stock", symbol: x.symbol, isin: x.isin || r.isin, ov: x.ov}]); const q = j.quotes["stock:" + x.symbol]; if (q) { r.price = q.priceEur; QUOTES["stock:" + x.symbol] = q; if (!r.name || r.name.length < 3) r.name = q.name; } } catch {} }
         else r.state = "fail";
       } catch { r.state = "fail"; }
-      drawPrev();
-    }
+      if (rows === mine) drawPrev();
+    } }));
   }, 500);
+  $("#dp-paste", dlg).onclick = async () => {
+    try { const t = await navigator.clipboard.readText(); if (!t.trim()) throw 0; $("#dp-txt", dlg).value = t; resolve(); }
+    catch { toast("Einfügen nicht erlaubt – tippe lange ins Feld und wähle „Einsetzen“."); $("#dp-txt", dlg).focus(); }
+  };
   $("#dp-txt", dlg).oninput = resolve;
   $("#dp-ok", dlg).onclick = () => {
-    const a = accById($("#dp-acc", dlg).value); if (!a) return;
-    if ($("#dp-repl", dlg).checked) a.holdings = a.holdings.filter(h => h.type !== "stock");
+    const def = accById($("#dp-acc", dlg).value), touched = new Set(), created = {};
+    const accFor = r => {
+      const t = r.target;
+      if (t?.id) return accById(t.id) || def;
+      if (t?.create) {
+        const k = t.create.plat.key + ":" + t.create.cat;
+        if (!created[k]) { const src = t.create.plat.accs.find(a => a.domain) || t.create.plat.accs[0]; created[k] = {id: slugId(t.create.cat, t.create.plat.name), name: t.create.plat.name, provider: src.provider || t.create.plat.name, ...(src.domain ? {domain: src.domain} : {}), cat: t.create.cat, holdings: [], archived: false}; DB.accounts.push(created[k]); }
+        return created[k];
+      }
+      return def;
+    };
     let n = 0;
     rows.filter(r => r.symbol && r.qty > 0).forEach(r => {
+      const a = accFor(r); if (!a) return;
+      if ($("#dp-repl", dlg).checked && !touched.has(a)) a.holdings = a.holdings.filter(h => h.type !== "stock");
+      touched.add(a);
       const ex = a.holdings.find(h => h.isin === r.isin || h.symbol === r.symbol);
       const cost = r.costPer ? {cost: {per: r.costPer}} : {};
       if (ex) Object.assign(ex, {qty: r.qty}, cost); else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, ...(r.ov ? {ov: r.ov} : {}), name: r.name || r.symbol, qty: r.qty, ...cost});
       n++;
     });
-    save(true); dlg.close(); toast(`${n} Position${n === 1 ? "" : "en"} übernommen`); done(); refreshQuotes(true);
+    save(true); dlg.close(); toast(`${n} Position${n === 1 ? "" : "en"} übernommen${touched.size > 1 ? ` in ${touched.size} Konten` : ""}`); done(); refreshQuotes(true);
   };
   if (!accs.length) $("#dp-prev", dlg).innerHTML = '<p class="msg" style="margin:0">Lege zuerst ein Konto in der Kategorie „Aktien & ETFs“ an.</p>';
 }

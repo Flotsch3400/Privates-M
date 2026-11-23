@@ -55,3 +55,18 @@ test("Depot einfügen übernimmt Stückzahl und Einstand", async ({page}) => {
   expect(h).toEqual({symbol: "IE00B4L5Y983", qty: 10, cost: {per: 100}, ov: {type: "FUND", id: "25096683"}});
   await expect.poll(() => page.evaluate(() => Math.round(hVal(DB.accounts.find(a => a.id === "depot").holdings[0]).pl))).toBe(240);
 });
+
+test("Depot einfügen verteilt per „Konto:“-Zeilen auf mehrere Konten und legt fehlende an", async ({page}) => {
+  await openWithDemo(page);
+  await page.evaluate(() => { DB.accounts.push({id: "tb-akt", name: "Testbroker", provider: "Testbroker", cat: "wertpapiere", holdings: [], archived: false}); save(true); });
+  await page.goto("./#depot");
+  await page.click("#d-imp");
+  await page.selectOption("#dp-acc", "depot");
+  await page.fill("#dp-txt", "Konto: Testbroker · Aktien & ETFs\nMSCI World | IE00B4L5Y983 | 2 Stk | Einstand 100,00\nKonto: Testbroker · Edelmetalle\nGold-Test | IE00B4L5Y983 | 3 Stk");
+  await expect(page.locator("#dp-prev")).toContainText("Testbroker · Edelmetalle & Rohstoffe (wird angelegt)");
+  await expect(page.locator("#dp-ok")).toBeEnabled();
+  await page.click("#dp-ok");
+  const r = await page.evaluate(() => DB.accounts.filter(a => a.provider === "Testbroker").map(a => [a.cat, a.holdings.map(h => h.qty)]).sort());
+  // same ISIN twice in one text: the last line wins and lands in the metals area
+  expect(r).toEqual([["edelmetalle", [3]], ["wertpapiere", []]]);
+});
