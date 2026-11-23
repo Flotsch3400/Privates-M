@@ -35,3 +35,23 @@ test("Einstand im Dialog eintragen", async ({page}) => {
   await page.click("#hf button[type=submit]");
   await expect.poll(() => page.evaluate(() => { const h = DB.accounts.find(x => x.id === "depot").holdings[0]; return hVal(h).pl; })).toBeCloseTo(20);
 });
+
+test("Depot einfügen übernimmt Stückzahl und Einstand", async ({page}) => {
+  await openWithDemo(page);
+  const rows = await page.evaluate(() => parseDepotText("Apple | US0378331005 | 1,25 Stk | Einstand 150,10\nSAP | DE0007164600 | 3 Stk | Einstand 1.234,50\niShares Core MSCI World   IE00B4L5Y983   125 Stk."));
+  expect(rows).toEqual([
+    {isin: "US0378331005", name: "Apple", qty: 1.25, costPer: 150.1},
+    {isin: "DE0007164600", name: "SAP", qty: 3, costPer: 1234.5},
+    {isin: "IE00B4L5Y983", name: "iShares Core MSCI World", qty: 125},
+  ]);
+  // full flow with the mocked onvista ETF
+  await page.goto("./#depot");
+  await page.click("#d-imp");
+  await page.selectOption("#dp-acc", "depot");
+  await page.fill("#dp-txt", "iShares Core MSCI World | IE00B4L5Y983 | 10 Stk | Einstand 100,00");
+  await expect(page.locator("#dp-ok")).toBeEnabled();
+  await page.click("#dp-ok");
+  const h = await page.evaluate(() => { const h = DB.accounts.find(a => a.id === "depot").holdings[0]; return {symbol: h.symbol, qty: h.qty, cost: h.cost, ov: h.ov}; });
+  expect(h).toEqual({symbol: "IE00B4L5Y983", qty: 10, cost: {per: 100}, ov: {type: "FUND", id: "25096683"}});
+  await expect.poll(() => page.evaluate(() => Math.round(hVal(DB.accounts.find(a => a.id === "depot").holdings[0]).pl))).toBe(240);
+});

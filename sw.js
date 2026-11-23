@@ -1,7 +1,7 @@
 /* Tracky service worker: makes the app installable and lets it start offline.
    The page itself is loaded network-first so updates arrive immediately; the cached copy is only a fallback.
    Requests to other sites (prices, logos, fonts) are not touched. */
-const CACHE = "tracky-v13";
+const CACHE = "tracky-v14";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "branding/favicon.svg", "branding/icon-192.png", "branding/icon-512.png", "branding/apple-touch-icon.png"];
 
 self.addEventListener("install", e => {

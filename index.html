@@ -3588,7 +3588,9 @@ function parseDepotText(text) {
     if (!cand && lines[i + 1]) { const n2 = lines[i + 1].match(/(\d{1,3}(?:\.\d{3})*(?:,\d+)?|\d+(?:[.,]\d+)?)/); if (n2) cand = [null, n2[1]]; }
     const name = line.slice(0, m.index).replace(/[\t|;]+/g, " ").trim() || (lines[i - 1] && !/\d{3}/.test(lines[i - 1]) ? lines[i - 1].trim() : "");
     const q = cand ? num(cand[1]) : null;
-    out.set(isin, {isin, name, qty: okNum(q) ? q : null});
+    const cm = line.match(/(?:Einstand(?:skurs)?|Kaufkurs|Ø\s*Kurs)\s*:?\s*(?:€|EUR)?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:,\d+)?)/i);
+    const c = cm ? num(cm[1]) : null;
+    out.set(isin, {isin, name, qty: okNum(q) ? q : null, ...(okNum(c) && c > 0 ? {costPer: c} : {})});
   });
   return [...out.values()];
 }
@@ -3596,7 +3598,7 @@ function importDepotDialog(done) {
   const accs = DB.accounts.filter(a => !a.archived && (a.cat === "wertpapiere" || isLive(a)));
   openDlg(`<div class="dlg-h"><h2>Depot einfügen</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
-      <p class="sub" style="margin:0">Öffne die Depotübersicht bei Flatex (oder einem anderen Broker), markiere die Tabelle mit allen Positionen, kopiere sie und füge sie hier ein. Die App sucht in jeder Zeile die ISIN und die Stückzahl. Vor dem Übernehmen kannst du alles prüfen.</p>
+      <p class="sub" style="margin:0">Öffne die Depotübersicht bei Flatex (oder einem anderen Broker), markiere die Tabelle mit allen Positionen, kopiere sie und füge sie hier ein. Die App sucht in jeder Zeile die ISIN und die Stückzahl, optional auch den Einstandskurs („Einstand 56,08“). Vor dem Übernehmen kannst du alles prüfen.</p>
       <div class="field"><label for="dp-acc">In welches Konto?</label><select class="input" id="dp-acc">${accs.map(a => `<option value="${a.id}">${esc(a.name)} · ${esc(catLabel(a.cat))}</option>`).join("")}</select></div>
       <div class="field"><label for="dp-txt">Bestandsliste</label><textarea class="input" id="dp-txt" placeholder="iShares Core MSCI World   IE00B4L5Y983   125 Stk.&#10;Apple Inc.   US0378331005   10"></textarea></div>
       <div id="dp-prev"></div>
@@ -3604,7 +3606,7 @@ function importDepotDialog(done) {
     <div class="dlg-f"><label class="check"><input type="checkbox" id="dp-repl"> Bestehende Positionen dieses Kontos ersetzen</label><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="button" id="dp-ok" disabled>Übernehmen</button></div></div>`, true);
   let rows = [];
   const drawPrev = () => {
-    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.symbol ? `<br><small class="muted">${esc(r.symbol)}</small>` : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
+    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.costPer ? ` <small class="muted num">· Einstand ${fmtN.format(r.costPer)} €</small>` : ""}${r.symbol ? (r.symbol !== r.isin ? `<br><small class="muted">${esc(r.symbol)}</small>` : "") : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
       : $("#dp-txt", dlg).value.trim() ? '<p class="msg" style="margin:0">Keine ISIN gefunden. Jede Position braucht ihre 12-stellige ISIN, zum Beispiel IE00B4L5Y983.</p>' : "";
     $$("[data-q]", dlg).forEach(inp => inp.onchange = () => { const n = parseNum(inp.value); rows[+inp.dataset.q].qty = okNum(n) ? n : null; okBtn(); });
     okBtn();
@@ -3629,7 +3631,8 @@ function importDepotDialog(done) {
     let n = 0;
     rows.filter(r => r.symbol && r.qty > 0).forEach(r => {
       const ex = a.holdings.find(h => h.isin === r.isin || h.symbol === r.symbol);
-      if (ex) ex.qty = r.qty; else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, ...(r.ov ? {ov: r.ov} : {}), name: r.name || r.symbol, qty: r.qty});
+      const cost = r.costPer ? {cost: {per: r.costPer}} : {};
+      if (ex) Object.assign(ex, {qty: r.qty}, cost); else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, ...(r.ov ? {ov: r.ov} : {}), name: r.name || r.symbol, qty: r.qty, ...cost});
       n++;
     });
     save(true); dlg.close(); toast(`${n} Position${n === 1 ? "" : "en"} übernommen`); done(); refreshQuotes(true);
