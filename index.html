@@ -3595,7 +3595,7 @@ function parseDepotText(text) {
   return [...out.values()];
 }
 function importDepotDialog(done) {
-  const accs = DB.accounts.filter(a => !a.archived && (a.cat === "wertpapiere" || isLive(a)));
+  const accs = DB.accounts.filter(a => !a.archived && (["wertpapiere", "edelmetalle"].includes(a.cat) || isLive(a)));
   openDlg(`<div class="dlg-h"><h2>Depot einfügen</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <p class="sub" style="margin:0">Öffne die Depotübersicht bei Flatex (oder einem anderen Broker), markiere die Tabelle mit allen Positionen, kopiere sie und füge sie hier ein. Die App sucht in jeder Zeile die ISIN und die Stückzahl, optional auch den Einstandskurs („Einstand 56,08“). Vor dem Übernehmen kannst du alles prüfen.</p>
