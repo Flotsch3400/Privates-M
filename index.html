@@ -208,6 +208,11 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
 .plat-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;min-width:0}
 .plat-row:hover b{color:var(--brand-ink)}
 .plat-row .nm{min-width:0}.plat-row .nm small{display:block;color:var(--ink-3);font-size:12px}
+.plat-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:6px}
+.plat-cat{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;min-width:0}
+.plat-cat:hover{border-color:var(--brand)}
+.plat-cat span{line-height:1.25;overflow-wrap:anywhere}
+.plat-sec.focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
 .plat-chips{display:flex;flex-wrap:wrap;gap:8px}
 .plat-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:inherit;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
 .plat-chip:hover{border-color:var(--brand)}
@@ -998,6 +1003,7 @@ function accLogo(a, size = "") {
 }
 function provLogo(name, size = "") { const a = DB.accounts.find(x => (x.provider || x.name) === name && x.domain) || DB.accounts.find(x => (x.provider || x.name) === name); return accLogo(a || {name, provider: name}, size); }
 function holdingLogo(h, size = "") {
+  if (h.type === "cash") return `<span class="logo ${size}" aria-hidden="true" style="color:${h.neg ? "var(--neg)" : "var(--ink-2)"}">${h.neg ? I.creditCard : I.banknote}</span>`;
   if (h.type === "metal") return `<span class="logo metal ${size} round" aria-hidden="true">${metalIcon(h.symbol)}</span>`;
   if (h.type === "wallet") return logoBox(CHAIN_LOGOS[h.chain], h.chain, size, true);
   if (h.type === "crypto") return logoBox(h.logo || QUOTES["crypto:" + h.symbol]?.logo, h.name || h.symbol, size, true);
@@ -1246,6 +1252,7 @@ async function refreshQuotes(silent) {
 /** Cost basis of a holding in EUR: either per unit (scales with the quantity) or a fixed total. */
 const hCost = (h, qty) => h.cost?.per != null ? h.cost.per * (qty ?? (+h.qty || 0)) : h.cost?.total != null ? +h.cost.total : null;
 function hVal(h) {
+  if (h.type === "cash") { const qty = +h.qty || 0, sign = h.neg ? -1 : 1; return {price: sign, qty, value: sign * qty, cost: null, pl: null, plPct: null, fresh: true, change: null, err: null, at: null}; }
   const k = hKey(h), q = QUOTES[k], lq = DB.lastQuotes[k];
   const price = q?.priceEur ?? lq?.priceEur ?? h.lastPrice ?? null;
   const qty = h.type === "wallet" ? (q?.balance ?? lq?.balance ?? h.qty ?? 0) : (+h.qty || 0);
@@ -1375,7 +1382,7 @@ function searchItems() {
   // accounts and positions
   const L = latest();
   platforms().filter(p => p.accs.length > 1 || investPlatforms().includes(p)).forEach(p => add("Plattformen", p.name, `${p.accs.map(a => catLabel(a.cat)).join(", ")} · Positionen erfassen`, platLogo(p, "sm"), after(() => platformDialog(p.key)), "plattform positionen"));
-  DB.accounts.forEach(a => add("Konten", a.name, `${catLabel(a.cat)}${a.archived ? " · archiviert" : ""}${L?.values[a.id] != null ? " · " + eur0(L.values[a.id]) : ""}`, accLogo(a, "sm"), after(() => accountDialog(a, () => go())), a.provider || "", !!a.archived));
+  DB.accounts.forEach(a => add("Konten", a.name, `${catLabel(a.cat)}${a.archived ? " · archiviert" : ""}${L?.values[a.id] != null ? " · " + eur0(L.values[a.id]) : ""}`, accLogo(a, "sm"), after(() => platformDialog(platKey(a), () => go(true), a.id)), a.provider || "", !!a.archived));
   DB.accounts.forEach(a => a.holdings.forEach(h => add("Positionen", h.name || h.symbol, `${a.name}${h.symbol ? " · " + (isAddr(h.symbol) ? h.symbol.slice(0, 8) + "…" : h.symbol) : ""}`, holdingLogo(h, "sm"), after(() => holdingDialog(a, h, () => go())), (h.isin || "") + " " + (h.symbol || ""))));
   // Lieferando
   knownRestaurants().forEach(r => add("Restaurants", r.name, `Neue Bestellung · ${r.n}× bestellt`, lfIcon(), after(() => { orderDialog(null, () => go()); const i = $("#o-r", dlg); if (i) { i.value = r.name; $("#o-e", dlg)?.focus(); } })));
@@ -1813,6 +1820,8 @@ VIEWS.bewertung = v => {
     const prevAth = ath().v;
     const values = {}; Object.entries(draft.values).forEach(([id, val]) => { if (accById(id)) values[id] = round2(+val || 0); });
     const detail = {}; Object.entries(draft.detail).forEach(([id, d]) => { if (values[id] != null) detail[id] = d; });
+    // a value typed by hand for an account that consists of a single amount keeps that amount in sync
+    if (!editing) accounts.forEach(a => { const h = a.holdings?.[0]; if (a.holdings?.length === 1 && h.type === "cash" && !draft.detail[a.id] && values[a.id] != null) h.qty = round2(Math.abs(values[a.id])); });
     if (editing) Object.assign(editing, {date: draft.date, note: draft.note, values, detail});
     else DB.snapshots.push({id: "s" + uid(), date: draft.date, note: draft.note, values, detail});
     save(true);
@@ -1876,7 +1885,7 @@ VIEWS.depot = v => {
         ${latest()?.values[a.id] > 0 && sum < latest().values[a.id] * .7 ? `<div class="msg" style="margin:0 18px 12px">Die erfassten Positionen ergeben ${eur0(sum)}, beim letzten Stichtag waren es ${eur0(latest().values[a.id])}. Fehlen noch Positionen? Bei der nächsten Bewertung zählt nur, was hier erfasst ist.</div>` : ""}
         <div class="h-row h"><span>Position</span><span class="hide-sm">Stück</span><span class="hide-sm">Kurs</span><span class="hide-sm">Heute</span><span>Wert</span></div>
         ${a.holdings.map(h => { const x = hVal(h); return `<div class="h-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0">
-          <span class="nm with-logo">${holdingLogo(h, "lg")}<span><b><span class="type-badge">${{stock: "Wertpapier", crypto: "Krypto", metal: "Metall", wallet: "Wallet"}[h.type]}</span>${esc(h.name || h.symbol)}</b><small>${esc(h.type === "wallet" ? CHAINS[h.chain]?.name + " · " + h.address.slice(0, 6) + "…" + h.address.slice(-4) : [h.symbol, h.isin].filter(Boolean).join(" · "))}${x.err && !x.fresh ? ` · <span class="neg">${esc(x.err)}</span>` : ""}</small></span></span>
+          <span class="nm with-logo">${holdingLogo(h, "lg")}<span><b><span class="type-badge">${{stock: "Wertpapier", crypto: "Krypto", metal: "Metall", wallet: "Wallet", cash: "Betrag"}[h.type]}</span>${esc(h.name || h.symbol)}</b><small>${esc(h.type === "wallet" ? CHAINS[h.chain]?.name + " · " + h.address.slice(0, 6) + "…" + h.address.slice(-4) : [h.symbol, h.isin].filter(Boolean).join(" · "))}${x.err && !x.fresh ? ` · <span class="neg">${esc(x.err)}</span>` : ""}</small></span></span>
           <span class="hide-sm num">${qtyTxt(x.qty)}${h.type === "metal" ? " oz" : ""}</span>
           <span class="hide-sm num px">${x.price != null ? fmtPx(x.price) + " €" : "–"}</span>
           <span class="hide-sm num ${cls(x.change || 0)}">${x.change != null ? pct(x.change) : x.fresh ? "–" : '<span class="muted">alt</span>'}</span>
@@ -1991,7 +2000,7 @@ function catView(v, key) {
         <td class="n">${l ? `<span class="${l.fresh ? "pos" : "muted"}">${eur0(l.value)}</span>` : isLive(a) ? "–" : '<span class="muted">manuell</span>'}</td>
         <td>${sparkline(recent.map(s => s.values[a.id] ?? null), color, 90, 22)}</td></tr>`;
     }).join("") + `<tr class="total"><td>Summe</td><td class="n">${eur(val)}</td><td class="n ${cls(val - (pv || 0))}">${sEur0(val - (pv || 0))}</td><td class="n">100 %</td><td></td><td></td></tr></tbody>`;
-  $$("#cv-accs tr[data-acc]").forEach(r => r.onclick = () => accountDialog(accById(r.dataset.acc), () => go()));
+  $$("#cv-accs tr[data-acc]").forEach(r => r.onclick = () => { const a = accById(r.dataset.acc); platformDialog(platKey(a), () => go(true), a.id); });
 
   // live positions in this category
   const drawLive = () => {
@@ -2766,11 +2775,11 @@ VIEWS.konten = v => {
             <span class="num">${L?.values[a.id] != null ? eur(L.values[a.id]) : "–"}</span></div>`;
         }).join("")}</div>`;
     }).join("") || '<div class="card empty">Noch keine Konten.</div>';
-    $$(".acc-row").forEach(r => { const f = () => accountDialog(accById(r.dataset.id), render); r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+    $$(".acc-row").forEach(r => { const f = () => { const a = accById(r.dataset.id); platformDialog(platKey(a), render, a.id); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
   };
   $$("#k-filter button").forEach(b => b.onclick = () => { filter = b.dataset.v; store.set("k-filter", filter); render(); });
   $$("#k-mode button").forEach(b => b.onclick = () => { mode = b.dataset.v; store.set("k-mode", mode); render(); });
-  $("#k-add").onclick = () => accountDialog(null, render);
+  $("#k-add").onclick = () => accountDialog(null, a => { render(); if (a) platformDialog(platKey(a), render, a.id); });
   $("#k-cat").onclick = () => categoryDialog(render);
   render(); onQuotes = render;
 };
@@ -3245,32 +3254,79 @@ function accountDialog(acc, done) {
 }
 
 /** Add or edit one live position (share/ETF, crypto, precious metal, wallet). */
-/** One platform with all its areas (accounts per category) and positions; positions are added by type and land in the right area. */
-function platformDialog(key, done = () => go(true)) {
+/** Account page: one platform/provider with all its areas (one account per category) and their assets.
+    Assets are added per category and land in the matching area; missing areas are created. */
+const AUTO_TYPE = {wertpapiere: "stock", krypto: "crypto", edelmetalle: "metal"};
+function platformDialog(key, done = () => go(true), focusId) {
   const p = platByKey(key); if (!p) return;
-  const L = latest(), back = () => platformDialog(key, done);
-  const accs = p.accs.filter(a => !a.archived).sort((x, y) => catIdx(x.cat) - catIdx(y.cat));
+  dlg.onclose = null;
+  const L = latest(), back = () => platformDialog(key, done, focusId);
+  const accs = p.accs.filter(a => !a.archived || a.id === focusId).sort((x, y) => catIdx(x.cat) - catIdx(y.cat));
   const valOf = a => accLive(a)?.value ?? L?.values[a.id] ?? 0;
   const tot = accs.reduce((t, a) => t + valOf(a), 0);
-  const adds = [["crypto", "Krypto", I.bitcoin], ["stock", "Aktie / ETF", I.chartCombined], ["metal", "Edelmetall", I.coins], ["wallet", "Wallet", I.wallet]];
   const unit = h => h.type === "metal" ? " oz" : h.type === "stock" ? " Stk." : "";
-  openDlg(`<div class="dlg-h"><h2 class="inl" style="gap:10px">${platLogo(p)}${esc(p.name)}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+  const sub = h => h.type === "cash" ? (h.neg ? "Schuld" : "Betrag") : `${qtyTxt(hVal(h).qty)}${unit(h)}`;
+  const title = accs.length === 1 && accs[0].name !== p.name ? accs[0].name : p.name;
+  openDlg(`<div class="dlg-h"><h2 class="inl" style="gap:10px;min-width:0">${platLogo(p)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(title)}</span></h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b" style="display:grid;gap:14px">
-      <div class="split"><span class="muted">${accs.length} Bereich${accs.length === 1 ? "" : "e"} · ${accs.reduce((t, a) => t + a.holdings.length, 0)} Positionen</span><b class="num" style="font-size:20px">${eur(tot)}</b></div>
-      <div><span class="lbl">Position hinzufügen</span><div class="plat-add">${adds.map(([t, l, ic]) => `<button class="btn sm" type="button" data-padd="${t}">${ic} ${l}</button>`).join("")}</div>
-        <p class="hint" style="margin:6px 0 0">Jede Position landet automatisch im passenden Bereich: Krypto bei Krypto, Aktien bei Aktien & ETFs, Gold bei Edelmetalle. Fehlt der Bereich noch, legt Tracky ihn an. Mit „Speichern & weitere“ erfasst du mehrere hintereinander.</p></div>
+      <div class="split"><span class="muted">${accs.length} Bereich${accs.length === 1 ? "" : "e"} · ${accs.reduce((t, a) => t + a.holdings.length, 0)} Assets</span><b class="num" style="font-size:20px">${eur(tot)}</b></div>
+      <div><span class="lbl">Asset hinzufügen</span>
+        <div class="plat-cats">${DB.categories.map(c => `<button class="plat-cat" type="button" data-pcat="${esc(c.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div>
+        <p class="hint" style="margin:6px 0 0">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jedes Asset landet im passenden Bereich, fehlende Bereiche legt Tracky an.</p></div>
       ${accs.map(a => `<div class="plat-sec" data-sec="${a.id}">
-        <div class="plat-h"><span class="inl" style="gap:8px;min-width:0">${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== p.name ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}</span><b class="num">${eur(valOf(a))}</b></div>
-        ${a.holdings.length ? a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${qtyTxt(x.qty)}${unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}</span></div>`; }).join("")
-          : `<p class="hint" style="margin:0 0 8px">${TYPE_CAT.stock === a.cat || a.cat === "krypto" || a.cat === "edelmetalle" ? "Noch keine Positionen – der Wert wird bisher von Hand eingetragen." : "Wert wird bei der Bewertung von Hand eingetragen."}</p>`}
+        <div class="plat-h"><span class="inl" style="gap:8px;min-width:0">${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}</span>
+          <span class="inl" style="gap:4px"><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button></span></div>
+        ${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}
+        ${a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
+        <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
       </div>`).join("")}
     </div>
     <div class="dlg-f"><span></span><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
-  $$("[data-padd]", dlg).forEach(b => b.onclick = () => holdingDialog(null, null, done, {type: b.dataset.padd, platform: key, back}));
+  $$("[data-pcat]", dlg).forEach(b => b.onclick = () => {
+    const cat = b.dataset.pcat, type = AUTO_TYPE[cat];
+    if (type) holdingDialog(null, null, done, {type, platform: key, back});
+    else cashDialog(null, null, done, {platform: key, cat, back});
+  });
   $$("[data-ph]", dlg).forEach(r => { const f = () => { const a = accById(r.dataset.pa); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.ph), done, {back}); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+  $$("[data-pedit]", dlg).forEach(b => b.onclick = () => { accountDialog(accById(b.dataset.pedit), () => { done(); }); dlg.onclose = () => { dlg.onclose = null; setTimeout(back, 30); }; });
+  if (focusId && accs.length > 1) { const el = $(`[data-sec="${focusId}"]`, dlg); if (el) { el.classList.add("focus"); el.scrollIntoView({block: "nearest"}); } }
+}
+const CASH_HINT = {liquiditaet: "z. B. Verrechnungskonto, Tagesgeld, USD-Guthaben", bargeld: "z. B. Geldbörse, Tresor", guthaben: "z. B. Gutschein, Cashback", sachwerte: "z. B. Uhr, Auto, Sammlung", kredite: "z. B. Kreditkarte, Ratenkredit"};
+/** An asset without a market price: a name and an amount in euros (debts in "Kreditkarten & Kredite" count negative). */
+function cashDialog(acc, h, done, preset = {}) {
+  const isNew = !h, plat = preset.platform ? platByKey(preset.platform) : null;
+  const cat = acc?.cat || preset.cat, neg = cat === "kredite";
+  let chain = false;
+  openDlg(`<form id="cf"><div class="dlg-h"><h2>${isNew ? esc(catLabel(cat)) + (plat ? " · " + esc(plat.name) : "") : "Asset bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b">
+      <div class="field"><label for="c-n">Bezeichnung</label><input class="input" id="c-n" value="${esc(h?.name || "")}" placeholder="${esc(CASH_HINT[cat] || "z. B. Guthaben")}" autocomplete="off"></div>
+      <div class="field"><label for="c-a">${neg ? "Offener Betrag in €" : "Betrag in €"}</label><input class="input n" id="c-a" inputmode="decimal" value="${h ? fmtN.format(h.qty) : ""}" placeholder="0,00" autocomplete="off"></div>
+      ${neg ? '<p class="hint" style="margin:0">Wird als Schuld vom Vermögen abgezogen.</p>' : ""}
+      <div id="c-msg"></div></div>
+    <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Entfernen</button>' : "<span></span>"}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button>${isNew ? '<button class="btn" type="button" id="c-next">Speichern & weitere</button>' : ""}<button class="btn primary" type="submit">Speichern</button></div></div></form>`);
+  dlg.onclose = preset.back ? () => { dlg.onclose = null; setTimeout(preset.back, 30); } : null;
+  $("[data-del]", dlg)?.addEventListener("click", () => { acc.holdings = acc.holdings.filter(x => x.id !== h.id); save(true); dlg.close(); toast("Asset entfernt"); done(); });
+  $("#c-n", dlg).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#c-a", dlg).focus(); } });
+  $("#c-next", dlg)?.addEventListener("click", () => { chain = true; $("#cf", dlg).requestSubmit(); chain = false; });
+  $("#cf", dlg).onsubmit = e => {
+    e.preventDefault();
+    const amt = parseNum($("#c-a", dlg).value), msg = $("#c-msg", dlg);
+    if (!okNum(amt) || !$("#c-a", dlg).value.trim()) { msg.innerHTML = '<div class="msg">Bitte einen Betrag eingeben.</div>'; $("#c-a", dlg).focus(); return; }
+    const item = {type: "cash", symbol: "", name: $("#c-n", dlg).value.trim() || catLabel(cat), qty: round2(Math.abs(amt)), ...(neg ? {neg: true} : {})};
+    if (isNew) {
+      let target = acc || plat.accs.find(a => a.cat === cat && !a.archived);
+      if (!target) { const src = plat.accs.find(a => a.domain) || plat.accs[0]; target = {id: slugId(cat, plat.name), name: plat.name, provider: src.provider || plat.name, ...(src.domain ? {domain: src.domain} : {}), cat, holdings: [], archived: false}; DB.accounts.push(target); }
+      target.holdings.push({id: "h" + uid(), ...item});
+    } else { delete h.neg; Object.assign(h, item); }
+    save(true); done();
+    if (chain) { toast(`${item.name} gespeichert – nächstes Asset`); cashDialog(plat ? null : acc, null, done, preset); }
+    else { dlg.close(); toast(isNew ? "Asset hinzugefügt" : "Asset gespeichert"); }
+  };
+  (isNew ? $("#c-n", dlg) : $("#c-a", dlg)).focus();
 }
 
 function holdingDialog(acc, h, done, preset) {
+  if (h?.type === "cash") return cashDialog(acc, h, done, preset || {});
   const isNew = !h;
   const st = h ? {...h} : {type: "stock", symbol: "", name: "", qty: null, isin: "", ...(preset || {})};
   const liveAccs = DB.accounts.filter(a => !a.archived);
