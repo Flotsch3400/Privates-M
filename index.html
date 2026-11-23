@@ -1030,28 +1030,63 @@ function guessDomain(name) {
 const initials = n => { const w = String(n || "?").replace(/[^\p{L}\p{N} ]/gu, " ").trim().split(/\s+/); return ((w[0]?.[0] || "?") + (w[1]?.[0] || w[0]?.[1] || "")).toUpperCase(); };
 
 const METAL_COLORS = {XAU: ["#f5d27a", "#b8860b"], XAG: ["#e6e8eb", "#8a9099"], XPT: ["#dfe3e8", "#6f7a86"], XPD: ["#e9e4dc", "#7d7366"]};
-const metalIcon = sym => { const [a, b] = METAL_COLORS[sym] || METAL_COLORS.XAU; return `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="${a}" stroke="${b}" stroke-width="1.5"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="${b}" stroke-width="1" opacity=".7"/></svg>`; };
+/** Bullion forms for the picture of a precious-metal position. */
+const COINS = {"": {name: "Münze (allgemein)"}, phil: {name: "Wiener Philharmoniker", t: "PH"}, krug: {name: "Krügerrand", t: "KR"}, maple: {name: "Maple Leaf", t: "ML"}, kang: {name: "Känguru / Nugget", t: "KÄ"},
+  eagle: {name: "American Eagle", t: "AE"}, buff: {name: "American Buffalo", t: "AB"}, brit: {name: "Britannia", t: "BR"}, panda: {name: "Panda", t: "PA"}, bar: {name: "Barren"}};
+const METAL_SYM = {XAU: "Au", XAG: "Ag", XPT: "Pt", XPD: "Pd"};
+/** Embossed coin (reeded rim, inner ring, emblem) or a bar, in the colour of the metal. */
+const metalIcon = (sym, coin = "") => {
+  const [a, b] = METAL_COLORS[sym] || METAL_COLORS.XAU, id = "mg-" + (METAL_COLORS[sym] ? sym : "XAU");
+  const grad = `<defs><radialGradient id="${id}" cx="34%" cy="28%" r="80%"><stop offset="0" stop-color="#fffaf0"/><stop offset=".42" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></radialGradient></defs>`;
+  if (coin === "bar") return `<svg viewBox="0 0 32 32">${grad}<path d="M6 22 9.5 10h13L26 22z" fill="url(#${id})" stroke="${b}" stroke-width="1" stroke-linejoin="round"/><path d="M9.5 10 6 22h20" fill="none" stroke="#fff" stroke-opacity=".45" stroke-width=".8"/><text x="16" y="18.6" font-size="5.2" font-weight="700" text-anchor="middle" fill="${b}" font-family="Georgia,serif">999.9</text></svg>`;
+  const t = COINS[coin]?.t || METAL_SYM[sym] || "Au";
+  return `<svg viewBox="0 0 32 32">${grad}<circle cx="16" cy="16" r="15" fill="url(#${id})" stroke="${b}" stroke-width="1"/><circle cx="16" cy="16" r="13.1" fill="none" stroke="${b}" stroke-width="1.7" stroke-dasharray=".7 .8" opacity=".5"/><circle cx="16" cy="16" r="10.6" fill="none" stroke="${b}" stroke-width=".7" opacity=".7"/><path d="M8.5 11.5a9 9 0 0 1 7-5" stroke="#fff" stroke-opacity=".7" stroke-width="1.2" fill="none" stroke-linecap="round"/><text x="16" y="19.6" font-size="${t.length > 2 ? 7 : 9}" font-weight="700" text-anchor="middle" fill="${b}" font-family="Georgia,'Times New Roman',serif" letter-spacing=".3">${t}</text></svg>`;
+};
 const CHAIN_LOGOS = {btc: "https://coin-images.coingecko.com/coins/images/1/large/bitcoin.png", eth: "https://coin-images.coingecko.com/coins/images/279/large/ethereum.png", sol: "https://coin-images.coingecko.com/coins/images/4128/large/solana.png", algo: "https://coin-images.coingecko.com/coins/images/4380/large/download.png"};
 const logoBox = (src, label, size = "", round = false) => `<span class="logo ${size} ${round ? "round" : ""}" aria-hidden="true">${esc(initials(label))}${src ? `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.remove()">` : ""}</span>`;
 function accLogo(a, size = "") {
   if (!a) return logoBox("", "?", size);
   const coinLogo = a.holdings?.length === 1 && a.holdings[0].type === "crypto" ? (a.holdings[0].logo || QUOTES[hKey(a.holdings[0])]?.logo) : a.coinLogo;
   if (a.cat === "krypto" && coinLogo) return logoBox(coinLogo, a.name, size, true);
+  const metal = a.holdings?.find(h => h.type === "metal");
+  if (metal?.coin && !a.domain) return `<span class="logo metal ${size} ${metal.coin === "bar" ? "" : "round"}" aria-hidden="true">${metalIcon(metal.symbol, metal.coin)}</span>`;
   const d = a.domain || guessDomain(a.provider) || guessDomain(a.name);
   if (d) return logoBox(favicon(d), a.provider || a.name, size);
-  const metal = a.holdings?.find(h => h.type === "metal");
-  if (metal || a.cat === "edelmetalle") return `<span class="logo metal ${size} round" aria-hidden="true">${metalIcon(metal?.symbol || "XAU")}</span>`;
+  if (metal || a.cat === "edelmetalle") return `<span class="logo metal ${size} ${metal?.coin === "bar" ? "" : "round"}" aria-hidden="true">${metalIcon(metal?.symbol || "XAU", metal?.coin)}</span>`;
   if (["bargeld", "guthaben", "sachwerte"].includes(a.cat)) return `<span class="logo ${size}" aria-hidden="true" style="color:${catColor(a.cat)}">${catIcon(a.cat)}</span>`;
   return logoBox("", a.provider || a.name, size);
 }
 function provLogo(name, size = "") { const a = DB.accounts.find(x => (x.provider || x.name) === name && x.domain) || DB.accounts.find(x => (x.provider || x.name) === name); return accLogo(a || {name, provider: name}, size); }
+/** Company websites for logos, by ISIN (shares) – ETFs/ETCs use the issuer. */
+const ISIN_DOMAIN = {
+  US0378331005: "apple.com", US5949181045: "microsoft.com", US0231351067: "amazon.com", US02079K3059: "abc.xyz", US02079K1079: "abc.xyz", US30303M1027: "meta.com", US67066G1040: "nvidia.com",
+  US09290D1019: "blackrock.com", US1912161007: "coca-colacompany.com", US5801351017: "mcdonalds.com", US6541061031: "nike.com", US0258161092: "americanexpress.com",
+  US57636Q1040: "mastercard.com", US92826C8394: "visa.com", US40434L1052: "hp.com", US8740391003: "tsmc.com", US6153691059: "moodys.com", US34959E1091: "fortinet.com", US8740541094: "take2games.com",
+  US88160R1014: "tesla.com", US64110L1061: "netflix.com", US4781601046: "jnj.com", US7427181091: "pg.com", US2546871060: "disney.com", US46625H1005: "jpmorganchase.com",
+  DE0008404005: "allianz.com", DE0008430026: "munichre.com", DE0007030009: "rheinmetall.com", DE0008232125: "lufthansagroup.com", DE0007164600: "sap.com", DE0007236101: "siemens.com", DE0005557508: "telekom.com",
+  DE0007100000: "mercedes-benz.com", DE0005190003: "bmwgroup.com", DE0007664039: "volkswagen-group.com", DE0008469008: "deutsche-boerse.com", DE000BASF111: "basf.com",
+  AT0000818802: "doco.com", AT0000652011: "erstegroup.com", AT0000743059: "omv.com", AT0000937503: "voestalpine.com", AT0000606306: "rbinternational.com", AT0000831706: "wienerberger.com", AT0000720008: "a1.group", AT0000746409: "verbund.com",
+  GB00BVZK7T90: "unilever.com", NL0015002MS2: "magnumicecream.com", NL0009805522: "nebius.com", NL0015001W49: "pluxeegroup.com", NL0010273215: "asml.com", FR0000120321: "loreal.com", FR0000121972: "se.com",
+  FR0000121014: "lvmh.com", CH0038863350: "nestle.com", DK0062498333: "novonordisk.com", JP3304200003: "komatsu.jp", CNE100000296: "byd.com", HK0992009065: "lenovo.com", KYG9830T1067: "mi.com", KYG875721634: "tencent.com",
+};
+const ETF_ISSUERS = [["ishares", "ishares.com"], ["xtrackers", "xtrackers.com"], ["vanguard", "vanguard.com"], ["spdr", "ssga.com"], ["vaneck", "vaneck.com"], ["amundi", "amundi.com"], ["lyxor", "amundi.com"],
+  ["invesco", "invesco.com"], ["wisdomtree", "wisdomtree.eu"], ["hanetf", "hanetf.com"], ["global x", "globalxetfs.eu"], ["franklin", "franklintempleton.com"], ["ubs", "ubs.com"], ["deka", "deka.de"], ["21shares", "21shares.com"]];
+function secDomain(h) {
+  if (h.domain) return h.domain;
+  const isin = h.isin || (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(h.symbol || "") ? h.symbol : "");
+  if (ISIN_DOMAIN[isin]) return ISIN_DOMAIN[isin];
+  const n = norm(h.name), e = ETF_ISSUERS.find(([k]) => n.includes(k));
+  return e ? e[1] : "";
+}
 function holdingLogo(h, size = "") {
   if (h.type === "cash") return `<span class="logo ${size}" aria-hidden="true" style="color:${h.neg ? "var(--neg)" : "var(--ink-2)"}">${h.neg ? I.creditCard : I.banknote}</span>`;
-  if (h.type === "metal") return `<span class="logo metal ${size} round" aria-hidden="true">${metalIcon(h.symbol)}</span>`;
+  if (h.type === "metal") return `<span class="logo metal ${size} ${h.coin === "bar" ? "" : "round"}" aria-hidden="true">${metalIcon(h.symbol, h.coin)}</span>`;
   if (h.type === "wallet") return logoBox(CHAIN_LOGOS[h.chain], h.chain, size, true);
   if (h.type === "crypto") return logoBox(h.logo || QUOTES["crypto:" + h.symbol]?.logo, h.name || h.symbol, size, true);
-  const base = String(h.symbol || "").split(".")[0].replace(/[^A-Z0-9-]/gi, "");
-  return logoBox(h.logo || (base ? `https://financialmodelingprep.com/image-stock/${encodeURIComponent(base.toUpperCase())}.png` : ""), h.name || h.symbol, size);
+  const d = secDomain(h);
+  if (h.logo || d) return logoBox(h.logo || favicon(d), h.name || h.symbol, size);
+  const base = /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(h.symbol || "") ? "" : String(h.symbol || "").split(".")[0].replace(/[^A-Z0-9-]/gi, "");
+  return logoBox(base ? `https://financialmodelingprep.com/image-stock/${encodeURIComponent(base.toUpperCase())}.png` : "", h.name || h.symbol, size);
 }
 
 /* ================= Market data ================= */
@@ -3523,6 +3558,7 @@ function holdingDialog(acc, h, done, preset) {
       <div id="h-search" class="field"><label for="h-q" id="h-q-l">Suche</label><input class="input" id="h-q" autocomplete="off"><div class="results" id="h-res" hidden></div></div>
       <div id="h-metal" class="row2"><div class="field"><label for="h-mt">Metall</label><select class="input" id="h-mt">${Object.entries(METALS).map(([k, m]) => `<option value="${k}" ${st.symbol === k ? "selected" : ""}>${m.name}</option>`).join("")}</select></div>
         <div class="field"><label for="h-unit">Einheit</label><select class="input" id="h-unit"><option value="oz">Feinunzen (oz)</option><option value="g">Gramm</option></select></div></div>
+      <div class="field" id="h-coin-f"><label for="h-coin">Form (für das Bild)</label><div style="display:flex;gap:10px;align-items:center"><span class="logo metal lg round" id="h-coin-img" aria-hidden="true"></span><select class="input" id="h-coin" style="flex:1">${Object.entries(COINS).map(([k, c]) => `<option value="${k}" ${(st.coin || "") === k ? "selected" : ""}>${c.name}</option>`).join("")}</select></div></div>
       <div id="h-wallet" class="row2"><div class="field"><label for="h-chain">Blockchain</label><select class="input" id="h-chain">${Object.entries(CHAINS).map(([k, c]) => `<option value="${k}" ${st.chain === k ? "selected" : ""}>${c.name} (${c.ticker})</option>`).join("")}</select></div>
         <div class="field"><label for="h-addr">Öffentliche Adresse</label><input class="input mono" id="h-addr" value="${esc(st.address || "")}" placeholder="z. B. bc1q… oder 0x…" autocomplete="off" spellcheck="false"></div></div>
       <div class="row2"><div class="field" id="h-sym-f"><label for="h-sym">Symbol</label><input class="input" id="h-sym" value="${esc(st.symbol || "")}" placeholder="z. B. EUNL.DE oder bitcoin" spellcheck="false"></div>
@@ -3547,7 +3583,7 @@ function holdingDialog(acc, h, done, preset) {
     $("#h-cmode", dlg).hidden = t === "wallet"; paintCmode();
     $$("#h-type button", dlg).forEach(b => b.setAttribute("aria-pressed", b.dataset.v === t));
     $("#h-search", dlg).hidden = !(t === "stock" || t === "crypto");
-    $("#h-metal", dlg).hidden = t !== "metal";
+    $("#h-metal", dlg).hidden = t !== "metal"; $("#h-coin-f", dlg).hidden = t !== "metal";
     $("#h-wallet", dlg).hidden = t !== "wallet";
     $("#h-sym-f", dlg).hidden = t === "metal" || t === "wallet";
     $("#h-qty-f", dlg).hidden = t === "wallet";
@@ -3591,7 +3627,7 @@ function holdingDialog(acc, h, done, preset) {
     const t = st.type;
     const cost = readCost();
     if (t === "wallet") { const addr = $("#h-addr", dlg).value.trim(), chain = $("#h-chain", dlg).value; if (!addr) return null; return {type: t, chain, address: addr, name: CHAINS[chain].name + " Wallet", cost}; }
-    if (t === "metal") { const sym = $("#h-mt", dlg).value, q = parseNum($("#h-qty", dlg).value); const oz = okNum(q) ? ($("#h-unit", dlg).value === "g" ? q / OZ_G : q) : null; return {type: t, symbol: sym, name: METALS[sym].name, qty: oz, cost}; }
+    if (t === "metal") { const sym = $("#h-mt", dlg).value, q = parseNum($("#h-qty", dlg).value); const oz = okNum(q) ? ($("#h-unit", dlg).value === "g" ? q / OZ_G : q) : null; const coin = $("#h-coin", dlg).value; return {type: t, symbol: sym, name: METALS[sym].name, qty: oz, cost, coin: coin || undefined}; }
     const sym = $("#h-sym", dlg).value.trim(); if (!sym) return null; const q = parseNum($("#h-qty", dlg).value);
     const src = t === "crypto" ? (st.src === "dex" || isAddr(sym) ? "dex" : "cg") : "";
     return {type: t, symbol: sym, name: st.name || sym, isin: st.isin || "", logo: st.logo || "", qty: okNum(q) ? q : null, cost, ov: st.ov || undefined, ticker: st.ticker || undefined, ...(src ? {src} : {})};
@@ -3611,6 +3647,8 @@ function holdingDialog(acc, h, done, preset) {
     } catch { res.innerHTML = '<div style="padding:10px" class="neg">Suche gerade nicht erreichbar. Du kannst das Symbol auch direkt eintragen.</div>'; }
   }, 350);
   $("#h-q", dlg).oninput = e => runSearch(e.target.value.trim());
+  const coinImg = () => { const c = $("#h-coin", dlg).value, el = $("#h-coin-img", dlg); el.classList.toggle("round", c !== "bar"); el.innerHTML = metalIcon($("#h-mt", dlg).value, c); };
+  $("#h-coin", dlg).addEventListener("change", coinImg); $("#h-mt", dlg).addEventListener("change", coinImg); coinImg();
   $("#h-sym", dlg).addEventListener("input", () => { st.ov = null; st.ticker = ""; st.isin = ""; });
   ["#h-sym", "#h-qty", "#h-mt", "#h-unit", "#h-chain", "#h-addr", "#h-cost"].forEach(s => $(s, dlg).addEventListener("change", check));
   if (!isNew) { check(); $("#h-sym", dlg).dataset.named = "1"; }

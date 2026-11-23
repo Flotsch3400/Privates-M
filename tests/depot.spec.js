@@ -70,3 +70,21 @@ test("Depot einfügen verteilt per „Konto:“-Zeilen auf mehrere Konten und le
   // same ISIN twice in one text: the last line wins and lands in the metals area
   expect(r).toEqual([["edelmetalle", [3]], ["wertpapiere", []]]);
 });
+
+test("Logos: Firmenlogo per ISIN, ETF-Anbieter, Münzbild wählbar", async ({page}) => {
+  await openWithDemo(page);
+  const r = await page.evaluate(() => [
+    secDomain({type: "stock", symbol: "US0378331005", name: "Apple"}),
+    secDomain({type: "stock", symbol: "IE00B4L5Y983", name: "iShares Core MSCI World"}),
+    secDomain({type: "stock", symbol: "XX0000000000", name: "Unbekannt AG"}),
+    /PH/.test(metalIcon("XAU", "phil")), /999\.9/.test(metalIcon("XAU", "bar")),
+  ]);
+  expect(r).toEqual(["apple.com", "ishares.com", "", true, true]);
+  // choose a coin in the position dialog
+  await page.goto("./#depot");
+  await page.locator('.h-row[data-h="hgold"]').first().click();
+  await page.selectOption("#h-coin", "phil");
+  await expect(page.locator("#h-coin-img")).toContainText("PH");
+  await page.click("#hf button[type=submit]");
+  expect(await page.evaluate(() => DB.accounts.find(a => a.id === "gold").holdings[0].coin)).toBe("phil");
+});
