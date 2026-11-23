@@ -18,7 +18,8 @@ test("Plattform: Krypto und Gold landen automatisch im passenden Bereich", async
   await page.goto("./#konten");
   await page.click('#k-mode [data-v="plat"]');
   await expect(page.locator("#k-list")).toContainText("Testbroker");
-  await page.click('[data-plat="testbroker"]');
+  await page.click('[data-tog="p:testbroker"]');
+  await page.click('#k-list [data-plat="testbroker"]');
   await expect(page.locator("dialog h2")).toContainText("Testbroker");
 
   // crypto: area does not exist yet → created
@@ -68,7 +69,7 @@ test("Konto anklicken → Assets nach Kategorie erfassen (Betrag, Schuld)", asyn
   await page.goto("./#konten");
   await page.click('#k-mode [data-v="cat"]');
   // click the broker's cash account
-  await page.locator('.acc-row[data-id="tb-cash"]').click();
+  await page.locator('.acc-row[data-id="tb-cash"] .acc-main').click();
   await expect(page.locator("dialog h2")).toContainText("Testbroker");
   await expect(page.locator('[data-sec="tb-cash"]')).toHaveClass(/focus/);
   // amount asset in "Konten & Tagesgeld" + next one

@@ -286,7 +286,41 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .msg-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
 
 /* ---------- accounts & holdings ---------- */
-.acc-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;padding:10px 20px;border-top:1px solid var(--line);cursor:pointer;transition:background .12s}
+.acc-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(96px,auto);gap:12px;align-items:center;padding:8px 20px 8px 12px;border-top:1px solid var(--line)}
+.acc-row.arch{opacity:.6}
+.acc-main{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;min-width:0;cursor:pointer;padding:5px 8px;border-radius:10px;transition:background .12s}
+.acc-main:hover{background:var(--surface-2)}
+.acc-main:focus-visible,.plat-head:focus-visible{outline:2px solid var(--brand);outline-offset:-2px}
+.acc-main .t{min-width:0}
+.acc-main .t b{display:block;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-main .t small{display:block;color:var(--ink-3);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acc-main .chev,.plat-head .chev{width:16px;height:16px;flex:none;color:var(--ink-3);transition:transform .15s}
+.acc-main[aria-expanded="true"] .chev,.plat-head[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.acc-main .chev.ph{visibility:hidden}
+.acc-row .val{text-align:right;font-weight:600}
+.mode{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap}
+.mode .ic{width:12px;height:12px}
+.mode.auto{background:var(--brand-soft);color:var(--brand-ink)}
+.mode.man{background:var(--surface-2);color:var(--ink-2)}
+.switch{position:relative;display:inline-block;width:42px;height:26px;flex:none}
+.switch input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;z-index:1}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--line-2);transition:background .15s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.switch input:checked + span{background:var(--brand)}
+.switch input:checked + span::after{transform:translateX(16px)}
+.switch input:focus-visible + span{outline:2px solid var(--brand);outline-offset:2px}
+.acc-pos{padding:0 20px 8px 58px}
+.acc-pos .plat-row{padding:7px 0}
+.plat-card{overflow:hidden}
+.plat-head{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;width:100%;padding:16px 20px;cursor:pointer}
+.plat-head:hover{background:var(--surface-2)}
+.plat-head .t{min-width:0}
+.plat-head .t b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.plat-head .t small{display:block;color:var(--ink-3);font-size:12.5px;font-weight:500}
+.plat-head .sum{margin-left:auto;font-size:17px;font-weight:700;white-space:nowrap}
+.plat-card.open .plat-head{border-bottom:1px solid var(--line)}
+.plat-foot{display:flex;gap:8px;flex-wrap:wrap;padding:10px 20px 14px;border-top:1px solid var(--line)}
+.k-legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--ink-3);margin:0}
 .acc-row:hover{background:var(--surface-2)}
 .acc-row.arch{opacity:.55}
 .acc-row .nm{font-weight:550;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -452,8 +486,11 @@ dialog.palette{width:min(640px,calc(100vw - 32px));margin-top:12vh;margin-bottom
   .val-head{grid-template-columns:minmax(0,1fr)}
   .vrow{grid-template-columns:minmax(0,1fr) minmax(130px,1fr);padding:10px 14px}
   .vrow .prev,.vrow .delta,.vrow-h{display:none}
-  .acc-row{grid-template-columns:minmax(0,1fr) auto;padding:10px 14px}
+  .acc-row{grid-template-columns:minmax(0,1fr) auto auto;padding:8px 12px 8px 6px;gap:8px}
   .acc-row .hide-sm{display:none}
+  .acc-pos{padding:0 14px 8px 44px}
+  .plat-head{padding:14px}
+  .plat-foot{padding:10px 14px 12px}
   .h-row{grid-template-columns:minmax(0,1fr) auto;padding:10px 14px}
   .h-row > .hide-sm{display:none}
   .gh .hide-sm{display:none}
@@ -959,7 +996,8 @@ function catTotals(s) {
   return out;
 }
 const assetsLiab = s => { let a = 0, l = 0; Object.values(s?.values || {}).forEach(v => v >= 0 ? a += v : l += v); return {a, l}; };
-const isLive = a => a && a.holdings && a.holdings.length > 0;
+/** Automatic = the value comes from positions with live prices. a.manual keeps an account hand-maintained even with positions. */
+const isLive = a => !!(a && !a.manual && a.holdings && a.holdings.length > 0);
 /** Last valuation on or before a date. */
 const snapAtOrBefore = iso => [...DB.snapshots].reverse().find(s => s.date <= iso);
 const monthsBetween = (a, b) => (parseD(b) - parseD(a)) / (365.25 / 12 * 864e5);
@@ -1309,7 +1347,7 @@ const allHoldings = (incArchived = false) => DB.accounts.filter(a => incArchived
 /** Accounts that could be valued live: they carry a suggested coin or wallet in the data file but no positions yet. */
 const coinItem = a => a.coin?.wallet ? null : a.coin ? {type: "crypto", symbol: a.coin.id, src: a.coin.src || (isAddr(a.coin.id) ? "dex" : "cg")} : null;
 const coinKey = a => { const it = coinItem(a); return it ? hKey(it) : ""; };
-const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && a.cat === "krypto" && !isLive(a));
+const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && a.cat === "krypto" && !a.holdings.length && !a.manual);
 async function refreshQuotes(silent) {
   const items = [...allHoldings().map(x => x.h), ...suggestions().map(coinItem).filter(Boolean)];
   if (!items.length) { setLiveStatus(); return; }
@@ -1983,7 +2021,7 @@ VIEWS.depot = v => {
       const preset = a.coin.wallet ? {type: "wallet", chain: a.coin.wallet} : {type: "crypto", symbol: a.coin.id, name: a.coin.name, src: a.coin.src || "", logo: a.coinLogo || "", autoQty: true};
       holdingDialog(a, null, render, preset);
     });
-    const accs = DB.accounts.filter(a => isLive(a) && !a.archived);
+    const accs = DB.accounts.filter(a => a.holdings.length && !a.archived);
     if (!accs.length) {
       $("#d-list").innerHTML = `<div class="card empty" style="display:grid;gap:12px;justify-items:center"><p style="margin:0;max-width:52ch">Noch keine Positionen. Lege zum Beispiel deine Flatex-Aktien an: Position hinzufügen, nach der Aktie oder ISIN suchen, Stückzahl eintragen. Fertig.</p><button class="btn primary" type="button" data-addfirst>${I.plus} Erste Position hinzufügen</button></div>`;
       $("[data-addfirst]").onclick = () => holdingDialog(null, null, render);
@@ -2852,42 +2890,75 @@ VIEWS.verlauf = v => {
 };
 
 /* ================= View: Konten ================= */
+/** Current value: live from positions for automatic accounts, else the last valuation. */
+const accNow = a => { const l = isLive(a) ? accLive(a) : null; return l ? l.value : (latest()?.values[a.id] ?? 0); };
+function setAuto(a, on, done) {
+  if (on) {
+    delete a.manual;
+    if (a.holdings.length) { save(true); toast(`${a.name}: wird jetzt automatisch bewertet`); done(); }
+    else { save(true); platformDialog(platKey(a), done, a.id); toast("Erfasse die Positionen – dann bewertet Tracky das Konto automatisch."); }
+  } else { a.manual = true; save(true); toast(`${a.name}: Wert pflegst du jetzt händisch`); done(); }
+}
 VIEWS.konten = v => {
-  const L = latest();
-  v.innerHTML = `<div class="head"><div><h1>Konten</h1><p>Alle Konten, Depots, Wallets und Guthaben, nach Kategorie. Konten, die es nicht mehr gibt, archivierst du: Sie bleiben im Verlauf erhalten, tauchen bei neuen Bewertungen aber nicht mehr auf.</p></div>
+  v.innerHTML = `<div class="head"><div><h1>Konten</h1><p>Alle Konten nach Plattform oder Kategorie. <b>Automatisch</b> heißt: der Wert kommt aus den erfassten Positionen mit Live-Kurs. <b>Händisch</b> heißt: du trägst den Wert bei der Bewertung ein. Umstellen kannst du das mit dem Schalter.</p></div>
     <div class="actions"><button class="btn" type="button" id="k-cat">Kategorien bearbeiten</button><button class="btn primary" type="button" id="k-add">${I.plus} Konto hinzufügen</button></div></div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap"><div class="seg" id="k-mode"><button type="button" data-v="cat">Nach Kategorie</button><button type="button" data-v="plat">Nach Plattform</button></div>
-      <div class="seg" id="k-filter"><button type="button" data-v="active">Aktiv</button><button type="button" data-v="all">Alle inkl. archiviert</button></div></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" id="k-mode"><button type="button" data-v="plat">Nach Plattform</button><button type="button" data-v="cat">Nach Kategorie</button></div>
+      <div class="seg" id="k-filter"><button type="button" data-v="active">Aktiv</button><button type="button" data-v="all">Inkl. archiviert</button></div>
+      <button class="btn ghost sm" type="button" id="k-all"></button></div>
+    <p class="k-legend"><span class="mode auto">${I.refresh} Automatisch</span> Wert aus Positionen mit Live-Kurs <span class="mode man">${I.pencil} Händisch</span> Wert trägst du bei der Bewertung ein</p>
     <div id="k-list" style="display:grid;gap:14px"></div>`;
-  let filter = store.get("k-filter", "active"), mode = store.get("k-mode", "cat");
-  const renderPlat = () => {
-    const ps = platforms(filter === "all").map(p => ({p, sum: p.accs.reduce((t, a) => t + (L?.values[a.id] || 0), 0)})).sort((x, y) => y.sum - x.sum || x.p.name.localeCompare(y.p.name));
-    $("#k-list").innerHTML = ps.map(({p, sum}) => `<div class="card" style="overflow:hidden"><div class="gh" style="cursor:default"><span class="l">${platLogo(p)}${esc(p.name)} <span class="muted" style="font-weight:400">${p.accs.length}</span></span>
-        <span class="r"><button class="btn ghost sm" type="button" data-plat="${p.key}">${I.plus} Positionen</button><b class="num">${eur(sum)}</b></span></div>
-      ${p.accs.sort((x, y) => catIdx(x.cat) - catIdx(y.cat)).map(a => { const l = accLive(a); return `<div class="acc-row ${a.archived ? "arch" : ""}" data-id="${a.id}" role="button" tabindex="0">
-        <span class="nm with-logo">${catChip(a.cat)}<span>${esc(catLabel(a.cat))}${a.name !== p.name ? `<small>${esc(a.name)}</small>` : ""}</span></span>
-        <span class="hide-sm">${isLive(a) ? `<span class="chip live ${l?.fresh ? "pos" : ""}">${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""}${l ? " · " + eur0(l.value) : ""}</span>` : a.archived ? '<span class="chip">archiviert</span>' : '<span class="chip">manuell</span>'}</span>
-        <span class="num">${L?.values[a.id] != null ? eur(L.values[a.id]) : "–"}</span></div>`; }).join("")}</div>`).join("") || '<div class="card empty">Noch keine Konten.</div>';
-    $$("[data-plat]").forEach(b => b.onclick = e => { e.stopPropagation(); platformDialog(b.dataset.plat, render); });
+  let filter = store.get("k-filter", "active"), mode = store.get("k-mode", "plat");
+  const st = store.get("k-open", {});
+  const isOpen = k => st[k] ?? k.startsWith("c:");
+  const L = latest();
+  const unit = h => h.type === "metal" ? " oz" : h.type === "stock" ? " Stk." : "";
+  const row = (a, inPlat, platName) => {
+    const auto = isLive(a), has = a.holdings.length, k = "a:" + a.id, open = has && isOpen(k), l = auto ? accLive(a) : null;
+    const title = inPlat ? catLabel(a.cat) : a.name;
+    const sub = [inPlat ? (a.name !== platName ? a.name : "") : (a.provider && a.provider !== a.name ? a.provider : ""),
+      auto ? `Automatisch · ${has} Position${has === 1 ? "" : "en"}${l && !l.fresh ? " · letzter Kurs" : ""}` : `Händisch${has ? ` · ${has} Position${has === 1 ? "" : "en"} nicht gezählt` : L?.values[a.id] != null ? " · Stichtag " + fmtDate(L.date) : ""}`].filter(Boolean).join(" · ");
+    return `<div class="acc-row ${a.archived ? "arch" : ""}" data-id="${a.id}">
+      <button class="acc-main" type="button" ${has ? `data-tog="${k}" aria-expanded="${open}"` : `data-page="${a.id}"`} title="${has ? "Positionen ein-/ausklappen" : "Konto öffnen"}">${has ? I.chev : I.chev.replace('class="ic chev"', 'class="ic chev ph"')}${inPlat ? catChip(a.cat) : accLogo(a, "lg")}<span class="t"><b>${esc(title)}${a.archived ? ' <span class="chip">archiviert</span>' : ""}</b><small>${esc(sub)}</small></span></button>
+      <span class="mode ${auto ? "auto" : "man"} hide-sm">${auto ? I.refresh + " Automatisch" : I.pencil + " Händisch"}</span>
+      <label class="switch" title="${auto ? "Automatisch – zum händischen Pflegen ausschalten" : "Händisch – zum automatischen Bewerten einschalten"}"><input type="checkbox" role="switch" data-auto="${a.id}" ${auto ? "checked" : ""} aria-label="${esc(a.name)} ${esc(catLabel(a.cat))} automatisch bewerten"><span></span></label>
+      <span class="num val">${eur(accNow(a))}</span></div>
+      ${open ? `<div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (h.neg ? "Schuld" : "Betrag") : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
+        <button class="btn ghost sm" type="button" data-page="${a.id}" style="margin:4px 0 0 -8px">${I.plus} Position hinzufügen</button></div>` : ""}`;
   };
   const render = () => {
     $$("#k-filter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === filter));
     $$("#k-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === mode));
-    if (mode === "plat") renderPlat();
-    else $("#k-list").innerHTML = DB.categories.map(c => {
-      const list = DB.accounts.filter(a => a.cat === c.key && (filter === "all" || !a.archived));
-      if (!list.length) return "";
-      const sum = list.reduce((x, a) => x + (L?.values[a.id] || 0), 0);
-      return `<div class="card" style="overflow:hidden"><div class="gh" style="cursor:default"><span class="l">${catChip(c.key)}${esc(c.label)} <span class="muted" style="font-weight:400">${list.length}</span></span><b class="num">${eur(sum)}</b></div>
-        ${list.map(a => {
-          const l = accLive(a);
-          return `<div class="acc-row ${a.archived ? "arch" : ""}" data-id="${a.id}" role="button" tabindex="0">
-            <span class="nm with-logo">${accLogo(a, "lg")}<span>${esc(a.name)}${a.provider && a.provider !== a.name ? `<small>${esc(a.provider)}</small>` : ""}</span></span>
-            <span class="hide-sm">${isLive(a) ? `<span class="chip live ${l?.fresh ? "pos" : ""}">${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""}${l ? " · " + eur0(l.value) : ""}</span>` : a.archived ? '<span class="chip">archiviert</span>' : '<span class="chip">manuell</span>'}</span>
-            <span class="num">${L?.values[a.id] != null ? eur(L.values[a.id]) : "–"}</span></div>`;
-        }).join("")}</div>`;
-    }).join("") || '<div class="card empty">Noch keine Konten.</div>';
-    $$(".acc-row").forEach(r => { const f = () => { const a = accById(r.dataset.id); platformDialog(platKey(a), render, a.id); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+    const byVal = (x, y) => accNow(y) - accNow(x);
+    let keys = [];
+    if (mode === "plat") {
+      const ps = platforms(filter === "all").map(p => ({p, sum: p.accs.reduce((t, a) => t + accNow(a), 0)})).sort((x, y) => y.sum - x.sum || x.p.name.localeCompare(y.p.name));
+      keys = ps.map(({p}) => "p:" + p.key);
+      $("#k-list").innerHTML = ps.map(({p, sum}) => {
+        const k = "p:" + p.key, open = isOpen(k), nAuto = p.accs.filter(isLive).length, nPos = p.accs.reduce((t, a) => t + a.holdings.length, 0);
+        return `<div class="card plat-card ${open ? "open" : ""}">
+          <button class="plat-head" type="button" data-tog="${k}" aria-expanded="${open}">${I.chev}${platLogo(p, "lg")}<span class="t"><b>${esc(p.name)}</b><small>${[...new Set(p.accs.map(a => catLabel(a.cat)))].join(" · ")}${nPos ? ` · ${nPos} Positionen` : ""} · ${nAuto === p.accs.length ? "automatisch" : nAuto ? `${nAuto} von ${p.accs.length} automatisch` : "händisch"}</small></span><span class="num sum">${eur(sum)}</span></button>
+          ${open ? p.accs.slice().sort(byVal).map(a => row(a, true, p.name)).join("") + `<div class="plat-foot"><button class="btn sm" type="button" data-plat="${p.key}">${I.plus} Asset hinzufügen</button><button class="btn ghost sm" type="button" data-imp="${p.key}">${I.paste} Depot einfügen</button></div>` : ""}</div>`;
+      }).join("") || '<div class="card empty">Noch keine Konten.</div>';
+    } else {
+      const cs = DB.categories.map(c => ({c, list: DB.accounts.filter(a => a.cat === c.key && (filter === "all" || !a.archived))})).filter(x => x.list.length)
+        .map(x => ({...x, sum: x.list.reduce((t, a) => t + accNow(a), 0)})).sort((x, y) => y.sum - x.sum);
+      keys = cs.map(({c}) => "c:" + c.key);
+      $("#k-list").innerHTML = cs.map(({c, list, sum}) => {
+        const k = "c:" + c.key, open = isOpen(k), nAuto = list.filter(isLive).length;
+        return `<div class="card plat-card ${open ? "open" : ""}">
+          <button class="plat-head" type="button" data-tog="${k}" aria-expanded="${open}">${I.chev}${catChip(c.key)}<span class="t"><b>${esc(c.label)}</b><small>${list.length} Konto${list.length === 1 ? "" : "en"} · ${nAuto === list.length ? "automatisch" : nAuto ? `${nAuto} von ${list.length} automatisch` : "händisch"}</small></span><span class="num sum">${eur(sum)}</span></button>
+          ${open ? list.slice().sort(byVal).map(a => row(a, false)).join("") : ""}</div>`;
+      }).join("") || '<div class="card empty">Noch keine Konten.</div>';
+    }
+    const allOpen = keys.length && keys.every(isOpen);
+    $("#k-all").textContent = allOpen ? "Alle zuklappen" : "Alle aufklappen";
+    $("#k-all").onclick = () => { keys.forEach(k => st[k] = !allOpen); store.set("k-open", st); render(); };
+    $$("#k-list [data-tog]").forEach(b => b.onclick = () => { st[b.dataset.tog] = !isOpen(b.dataset.tog); store.set("k-open", st); render(); });
+    $$("#k-list [data-page]").forEach(b => b.onclick = () => { const a = accById(b.dataset.page); platformDialog(platKey(a), render, a.id); });
+    $$("#k-list [data-plat]").forEach(b => b.onclick = () => platformDialog(b.dataset.plat, render));
+    $$("#k-list [data-imp]").forEach(b => b.onclick = () => { const p = platByKey(b.dataset.imp); importDepotDialog(render, (p.accs.find(a => a.cat === "wertpapiere" && !a.archived) || p.accs.find(a => a.cat === "edelmetalle"))?.id); });
+    $$("#k-list [data-auto]").forEach(inp => inp.onchange = () => setAuto(accById(inp.dataset.auto), inp.checked, render));
+    $$("#k-list .plat-row[data-h]").forEach(r => { const f = () => { const a = accById(r.dataset.a); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.h), render); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
   };
   $$("#k-filter button").forEach(b => b.onclick = () => { filter = b.dataset.v; store.set("k-filter", filter); render(); });
   $$("#k-mode button").forEach(b => b.onclick = () => { mode = b.dataset.v; store.set("k-mode", mode); render(); });
@@ -3389,7 +3460,7 @@ function platformDialog(key, done = () => go(true), focusId) {
         <div class="plat-h"><span class="inl" style="gap:8px;min-width:0">${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}</span>
           <span class="inl" style="gap:4px"><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button></span></div>
         ${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}
-        ${a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
+        ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen unter Konten mit dem Schalter.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
         <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
       </div>`).join("")}
     </div>
