@@ -222,6 +222,8 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
 .pi-bar .msg{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pi-bar .msg > span{flex:1 1 220px;min-width:0}
 #st-live.click{cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.update-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);box-shadow:var(--shadow-lg, 0 10px 30px rgba(0,0,0,.25));font-size:14px;max-width:calc(100vw - 32px)}
+@media (max-width:760px){.update-bar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
 .pos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
 .pos-row:first-child{border-top:0}
 .pos-row .nm{font-weight:550;display:flex;align-items:center;gap:10px;min-width:0}
@@ -3137,9 +3139,17 @@ VIEWS.planung = v => {
 
 /* ================= View: Daten ================= */
 VIEWS.daten = v => {
+  setTimeout(async () => {
+    const el = $("#ver-info"); if (!el) return;
+    const l = await Updater.check(true), mine = APP_VERSION.replace("tracky-v", "");
+    if (!$("#ver-info")) return;
+    el.textContent = l == null ? `Version ${mine} · Online-Stand gerade nicht erreichbar` : l === APP_VERSION ? `Version ${mine} · aktuell` : `Version ${mine} · neu verfügbar: ${l.replace("tracky-v", "")}`;
+  }, 0);
+  setTimeout(() => { const b = $("#ver-reload"); if (b) b.onclick = () => { b.classList.add("spin"); Updater.reload(true); }; }, 0);
   v.innerHTML = `<div class="head"><div><h1>Daten & Einstellungen</h1><p>Darstellung wählen und Daten sichern. ${MODE === "server" ? "Der Server legt zusätzlich jeden Tag eine Sicherung im Ordner „backups“ an." : ""}</p></div></div>
     <div class="card" id="lock-card"></div>
     <div class="card" id="sync-card"></div>
+    <div class="card"><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><div><h3 style="margin:0 0 2px">App-Version</h3><p class="sub" style="margin:0" id="ver-info">Version ${APP_VERSION.replace("tracky-v", "")} · wird geprüft …</p></div><button class="btn" type="button" id="ver-reload">${I.refresh} App aktualisieren</button></div></div>
     <div class="card"><div class="card-h"><h2>Einkommensquellen</h2><span class="muted" style="font-size:12.5px">Webseite eintragen, dann erscheint das Logo</span></div><div class="card-b" id="src-list"></div></div>
     <div class="card"><div class="card-h"><h2>Darstellung</h2></div><div class="card-b" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <span class="sub">Hell, dunkel oder wie dein Gerät eingestellt ist. Die Auswahl bleibt gespeichert.</span><div class="seg theme-seg" data-labels="1" role="group" aria-label="Darstellung"></div></div></div>
@@ -3217,6 +3227,7 @@ $("#file-in").onchange = async e => {
 async function drawLockCard() {
   const el = $("#lock-card"); if (!el) return;
   const sup = await Lock.supported(), c = Lock.cfg;
+  if (!el.isConnected) return; // the page was redrawn meanwhile – the new card draws itself
   const bioName = /iPhone|iPad/.test(navigator.userAgent) ? "Face ID" : /Mac/.test(navigator.userAgent) ? "Touch ID" : "Windows Hello bzw. Fingerabdruck";
   if (!Lock.on()) {
     el.innerHTML = `<div class="card-h"><h2 class="inl">${I.lockIc}App-Sperre</h2><span class="chip">aus</span></div>
@@ -3858,15 +3869,51 @@ function applyTheme() {
   });
 }
 applyTheme();
+/* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
+   and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
+const APP_VERSION = "tracky-v20";
+let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
 }
+const Updater = {
+  checkedAt: 0, latest: null,
+  async check(force = false) {
+    if (!force && Date.now() - this.checkedAt < 60000) return this.latest;
+    this.checkedAt = Date.now();
+    try { const j = await getJSON("version.json?t=" + Date.now(), {cache: "no-store"}, 6000); this.latest = j.v || null; } catch { return null; }
+    swReg?.update().catch(() => {});
+    if (this.latest && this.latest !== APP_VERSION) this.offer();
+    return this.latest;
+  },
+  /** Reload right away when nothing is being edited, otherwise offer a button. */
+  offer() {
+    const busy = dlg.open || route === "bewertung" || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
+    // only one automatic reload per version – if the page is still old afterwards (server cache), show the button instead
+    if (!busy && !this.shown && store.get("upd-tried") !== this.latest) { store.set("upd-tried", this.latest); this.reload(); return; }
+    if (this.shown) return; this.shown = true;
+    const b = document.createElement("div");
+    b.className = "update-bar"; b.setAttribute("role", "status");
+    b.innerHTML = `<span>Neue Tracky-Version verfügbar.</span><button class="btn sm primary" type="button">${I.refresh} Jetzt aktualisieren</button>`;
+    b.querySelector("button").onclick = () => this.reload();
+    document.body.append(b);
+  },
+  async reload(clear = false) {
+    try {
+      if (clear && "caches" in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
+      await swReg?.update();
+    } catch {}
+    location.reload();
+  },
+};
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Updater.check(); });
 if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) { const k = $("#kbd-hint"); if (k) k.textContent = "⌘ K"; }
 (async function boot() {
   PRIV = !!store.get("privacy", false);
   Lock.init();
   await loadData();
   go(); setLiveStatus();
+  setTimeout(() => Updater.check(true), 1500);
   if (Sync.on()) { Sync.status("", "Sync wird geprüft …"); Sync.pull(); }
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); });
   setInterval(() => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); }, 2 * 60 * 1000);

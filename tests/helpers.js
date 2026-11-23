@@ -61,7 +61,7 @@ function fakeGitHub() {
 /** Opens Tracky with the demo data imported, collects page errors. */
 async function openWithDemo(page, hash = "uebersicht") {
   const errors = [];
-  page.on("pageerror", e => errors.push(e.message));
+  page.on("pageerror", e => errors.push(e.message + " @ " + (e.stack || "").split("\n").slice(1, 3).join(" | ")));
   await page.goto("./");
   await page.locator("#file-in").setInputFiles(DEMO);
   await expect(page.locator(".hero-total")).toBeVisible();
