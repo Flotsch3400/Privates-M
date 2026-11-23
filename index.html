@@ -1248,12 +1248,19 @@ async function dexQuotes(addrs) {
   }
   return out;
 }
-const hKey = h => h.type === "wallet" ? `wallet:${h.chain}:${h.address}` : `${h.type}:${h.symbol}`;
+const hKey = h => h.type === "wallet" ? `wallet:${h.chain}:${h.address}` : h.type === "cash" ? `fx:${h.ccy || "EUR"}` : `${h.type}:${h.symbol}`;
+const CCYS = ["EUR", "USD", "GBP", "CHF"];
+/** "572,47 USD" for amounts in a foreign currency. */
+const cashTxt = h => h.ccy && h.ccy !== "EUR" ? `${fmtN.format(h.qty)} ${h.ccy}` : "";
 const MARKET = {
   /** items: holdings ({type, symbol, chain, address}). Returns {quotes: {key: quote}, errors: {key: text}}. */
   async quotes(items) {
     const quotes = {}, errors = {}, resolved = {};
     const uniq = new Map(items.filter(h => h.type !== "cash").map(h => [hKey(h), h]));
+    // exchange rates for amounts held in a foreign currency
+    await Promise.all([...new Set(items.filter(h => h.type === "cash" && h.ccy && h.ccy !== "EUR").map(h => h.ccy))].map(async c => {
+      try { quotes["fx:" + c] = {priceEur: await fxToEur(c), price: 1, currency: c, change: null, name: c, source: "Wechselkurs", time: new Date().toISOString()}; } catch {}
+    }));
     const stocks = [], metals = [], coins = new Set(), wallets = [], dexes = [], cryptos = [];
     for (const h of uniq.values()) {
       if (h.type === "stock") stocks.push(h);
@@ -1412,7 +1419,11 @@ async function refreshQuotes(silent) {
 /** Cost basis of a holding in EUR: either per unit (scales with the quantity) or a fixed total. */
 const hCost = (h, qty) => h.cost?.per != null ? h.cost.per * (qty ?? (+h.qty || 0)) : h.cost?.total != null ? +h.cost.total : null;
 function hVal(h) {
-  if (h.type === "cash") { const qty = +h.qty || 0, sign = h.neg ? -1 : 1; return {price: sign, qty, value: sign * qty, cost: null, pl: null, plPct: null, fresh: true, change: null, err: null, at: null}; }
+  if (h.type === "cash") {
+    const qty = +h.qty || 0, sign = h.neg ? -1 : 1, fx = !h.ccy || h.ccy === "EUR";
+    const k = hKey(h), q = fx ? null : QUOTES[k], rate = fx ? 1 : q?.priceEur ?? DB.lastQuotes[k]?.priceEur ?? h.rateEur ?? null;
+    return {price: rate != null ? sign * rate : null, qty, value: rate != null ? sign * qty * rate : null, cost: null, pl: null, plPct: null, fresh: fx || !!q, change: null, err: null, at: fx ? null : q ? quotesAt : DB.lastQuotes[k]?.at};
+  }
   const k = hKey(h), q = QUOTES[k], lq = DB.lastQuotes[k];
   const price = q?.priceEur ?? lq?.priceEur ?? h.lastPrice ?? null;
   const qty = h.type === "wallet" ? (q?.balance ?? lq?.balance ?? h.qty ?? 0) : (+h.qty || 0);
@@ -2957,7 +2968,7 @@ VIEWS.konten = v => {
       <span class="mode ${auto ? "auto" : "man"} hide-sm">${auto ? I.refresh + " Automatisch" : I.pencil + " Händisch"}</span>
       <label class="switch" title="${auto ? "Automatisch – zum händischen Pflegen ausschalten" : "Händisch – zum automatischen Bewerten einschalten"}"><input type="checkbox" role="switch" data-auto="${a.id}" ${auto ? "checked" : ""} aria-label="${esc(a.name)} ${esc(catLabel(a.cat))} automatisch bewerten"><span></span></label>
       <span class="num val">${eur(accNow(a))}</span></div>
-      ${open ? `<div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (h.neg ? "Schuld" : "Betrag") : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
+      ${open ? `<div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
         <button class="btn ghost sm" type="button" data-page="${a.id}" style="margin:4px 0 0 -8px">${I.plus} Position hinzufügen</button></div>` : ""}`;
   };
   const render = () => {
@@ -3483,7 +3494,7 @@ function platformDialog(key, done = () => go(true), focusId) {
   const valOf = a => accLive(a)?.value ?? L?.values[a.id] ?? 0;
   const tot = accs.reduce((t, a) => t + valOf(a), 0);
   const unit = h => h.type === "metal" ? " oz" : h.type === "stock" ? " Stk." : "";
-  const sub = h => h.type === "cash" ? (h.neg ? "Schuld" : "Betrag") : `${qtyTxt(hVal(h).qty)}${unit(h)}`;
+  const sub = h => h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : `${qtyTxt(hVal(h).qty)}${unit(h)}`;
   const title = accs.length === 1 && accs[0].name !== p.name ? accs[0].name : p.name;
   openDlg(`<div class="dlg-h"><h2 class="inl" style="gap:10px;min-width:0">${platLogo(p)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(title)}</span></h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b" style="display:grid;gap:14px">
@@ -3519,7 +3530,7 @@ function cashDialog(acc, h, done, preset = {}) {
   openDlg(`<form id="cf"><div class="dlg-h"><h2>${isNew ? esc(catLabel(cat)) + (plat ? " · " + esc(plat.name) : "") : "Asset bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <div class="field"><label for="c-n">Bezeichnung</label><input class="input" id="c-n" value="${esc(h?.name || "")}" placeholder="${esc(CASH_HINT[cat] || "z. B. Guthaben")}" autocomplete="off"></div>
-      <div class="field"><label for="c-a">${neg ? "Offener Betrag in €" : "Betrag in €"}</label><input class="input n" id="c-a" inputmode="decimal" value="${h ? fmtN.format(h.qty) : ""}" placeholder="0,00" autocomplete="off"></div>
+      <div class="field"><label for="c-a">${neg ? "Offener Betrag" : "Betrag"}</label><div style="display:flex;gap:8px"><input class="input n" id="c-a" inputmode="decimal" value="${h ? fmtN.format(h.qty) : ""}" placeholder="0,00" autocomplete="off" style="flex:1"><select class="input" id="c-ccy" aria-label="Währung" style="width:96px">${CCYS.map(c => `<option ${(h?.ccy || "EUR") === c ? "selected" : ""}>${c}</option>`).join("")}</select></div><span class="hint">Fremdwährungen rechnet Tracky laufend in Euro um.</span></div>
       ${neg ? '<p class="hint" style="margin:0">Wird als Schuld vom Vermögen abgezogen.</p>' : ""}
       <div id="c-msg"></div></div>
     <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Entfernen</button>' : "<span></span>"}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button>${isNew ? '<button class="btn" type="button" id="c-next">Speichern & weitere</button>' : ""}<button class="btn primary" type="submit">Speichern</button></div></div></form>`);
@@ -3531,13 +3542,14 @@ function cashDialog(acc, h, done, preset = {}) {
     e.preventDefault();
     const amt = parseNum($("#c-a", dlg).value), msg = $("#c-msg", dlg);
     if (!okNum(amt) || !$("#c-a", dlg).value.trim()) { msg.innerHTML = '<div class="msg">Bitte einen Betrag eingeben.</div>'; $("#c-a", dlg).focus(); return; }
-    const item = {type: "cash", symbol: "", name: $("#c-n", dlg).value.trim() || catLabel(cat), qty: round2(Math.abs(amt)), ...(neg ? {neg: true} : {})};
+    const ccy = $("#c-ccy", dlg).value;
+    const item = {type: "cash", symbol: "", name: $("#c-n", dlg).value.trim() || catLabel(cat), qty: round2(Math.abs(amt)), ...(neg ? {neg: true} : {}), ...(ccy !== "EUR" ? {ccy} : {})};
     if (isNew) {
       let target = acc || plat.accs.find(a => a.cat === cat && !a.archived);
       if (!target) { const src = plat.accs.find(a => a.domain) || plat.accs[0]; target = {id: slugId(cat, plat.name), name: plat.name, provider: src.provider || plat.name, ...(src.domain ? {domain: src.domain} : {}), cat, holdings: [], archived: false}; DB.accounts.push(target); }
       target.holdings.push({id: "h" + uid(), ...item});
-    } else { delete h.neg; Object.assign(h, item); }
-    save(true); done();
+    } else { delete h.neg; delete h.ccy; Object.assign(h, item); }
+    save(true); done(); if (ccy !== "EUR") refreshQuotes(true);
     if (chain) { toast(`${item.name} gespeichert – nächstes Asset`); cashDialog(plat ? null : acc, null, done, preset); }
     else { dlg.close(); toast(isNew ? "Asset hinzugefügt" : "Asset gespeichert"); }
   };
@@ -3692,6 +3704,20 @@ function parseDepotText(text) {
   let acct = null;
   lines.forEach((line, i) => {
     const h = line.match(/^\s*(?:#+\s*)?Konto\s*:\s*(.+?)\s*$/i); if (h) { acct = h[1]; return; }
+    // "Betrag | Name | 15.044,45 EUR" and "Krypto | Name | coin id or contract address | quantity"
+    const k = line.match(/^\s*(Betrag|Krypto)\s*\|(.*)$/i);
+    if (k) {
+      const parts = k[2].split("|").map(x => x.trim()), kind = k[1].toLowerCase() === "betrag" ? "cash" : "crypto";
+      if (kind === "cash") {
+        const am = (parts[1] || "").match(/(-?[\d.]+(?:,\d+)?)\s*(EUR|USD|GBP|CHF|€|\$)?/i), v = am ? num(am[1]) : null;
+        const ccy = {"€": "EUR", "$": "USD"}[am?.[2]] || (am?.[2] || "EUR").toUpperCase();
+        if (parts[0] && okNum(v)) out.set("cash:" + (acct || "") + ":" + parts[0], {kind, isin: "", name: parts[0], qty: Math.abs(v), ccy, ...(acct ? {acct} : {})});
+      } else if (parts[1]) {
+        const q = num(parts[2] || "");
+        out.set("crypto:" + (acct || "") + ":" + parts[0] + ":" + parts[1], {kind, isin: "", name: parts[0] || parts[1], sym: parts[1], qty: okNum(q) ? q : null, ...(acct ? {acct} : {})});
+      }
+      return;
+    }
     const m = line.match(/\b([A-Z]{2}[A-Z0-9]{9}\d)\b/); if (!m) return;
     const isin = m[1];
     let rest = line.slice(m.index + isin.length);
@@ -3712,7 +3738,8 @@ function depotTarget(label) {
   const [pl, ca] = label.split(/\s*[·|\/–-]\s*(?=[^·|\/–-]*$)/), np = norm(pl), nc = norm(ca || "");
   const p = platforms().find(x => norm(x.name) === np) || platforms().find(x => norm(x.name).startsWith(np) || np.startsWith(norm(x.name)));
   const cat = nc ? DB.categories.find(c => norm(c.label).startsWith(nc) || nc.startsWith(norm(c.label).split(/[^a-z0-9]+/)[0])) : DB.categories.find(c => c.key === "wertpapiere");
-  if (!p || !cat) return null;
+  if (!cat) return null;
+  if (!p) { const name = pl.trim(); return {create: {plat: {key: platKey({name}), name, accs: []}, cat: cat.key}, label: `${name} · ${cat.label} (neu)`}; }
   const a = p.accs.find(x => x.cat === cat.key && !x.archived);
   return a ? {id: a.id, label: `${a.name} · ${catLabel(a.cat)}`} : {create: {plat: p, cat: cat.key}, label: `${p.name} · ${cat.label} (wird angelegt)`};
 }
@@ -3731,7 +3758,7 @@ function importDepotDialog(done, preAcc) {
   const drawPrev = () => {
     let lastT = null;
     const head = r => { const t = r.target?.label || (r.acct ? `„${r.acct}“ nicht gefunden – kommt ins gewählte Konto` : "Gewähltes Konto"); if (!rows.some(x => x.acct) || t === lastT) return ""; lastT = t; return `<tr><td colspan="4" style="white-space:normal"><b>→ ${esc(t)}</b></td></tr>`; };
-    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `${head(r)}<tr><td class="mono">${r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.costPer ? ` <small class="muted num">· Einstand ${fmtN.format(r.costPer)} €</small>` : ""}${r.symbol ? (r.symbol !== r.isin ? `<br><small class="muted">${esc(r.symbol)}</small>` : "") : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
+    $("#dp-prev", dlg).innerHTML = rows.length ? `<div class="tbl-wrap"><table><thead><tr><th>ISIN</th><th>Wertpapier</th><th class="n">Stück</th><th>Kurs</th></tr></thead><tbody>${rows.map((r, i) => `${head(r)}<tr><td class="mono">${r.kind ? `<span class="type-badge">${r.kind === "cash" ? "Betrag" : "Krypto"}</span>` : r.isin}</td><td style="white-space:normal">${esc(r.name || "")}${r.costPer ? ` <small class="muted num">· Einstand ${fmtN.format(r.costPer)} €</small>` : ""}${r.symbol ? (r.symbol !== r.isin ? `<br><small class="muted">${esc(r.symbol)}</small>` : "") : r.state === "busy" ? '<br><small class="muted">wird gesucht …</small>' : r.state === "fail" ? '<br><small class="neg">nicht gefunden, wird übersprungen</small>' : ""}</td><td class="n"><input class="input sm n cell-in" data-q="${i}" value="${r.qty != null ? fmtQ.format(r.qty) : ""}" aria-label="Stück ${r.isin}"></td><td class="num">${r.price != null ? fmtPx(r.price) + " €" : "–"}</td></tr>`).join("")}</tbody></table></div>`
       : $("#dp-txt", dlg).value.trim() ? '<p class="msg" style="margin:0">Keine ISIN gefunden. Jede Position braucht ihre 12-stellige ISIN, zum Beispiel IE00B4L5Y983.</p>' : "";
     $$("[data-q]", dlg).forEach(inp => inp.onchange = () => { const n = parseNum(inp.value); rows[+inp.dataset.q].qty = okNum(n) ? n : null; okBtn(); });
     okBtn();
@@ -3742,6 +3769,15 @@ function importDepotDialog(done, preAcc) {
     const mine = rows, queue = [...rows];
     await Promise.all(Array.from({length: 6}, async () => { for (let r; (r = queue.shift());) {
       if (rows !== mine) return;
+      if (r.kind === "cash") {
+        try { r.price = await fxToEur(r.ccy); r.symbol = "cash"; r.state = "ok"; } catch { r.state = "fail"; }
+        if (rows === mine) drawPrev(); continue;
+      }
+      if (r.kind === "crypto") {
+        try { const it = {type: "crypto", symbol: r.sym, ...(isAddr(r.sym) ? {src: "dex"} : {})}, j = await MARKET.quotes([it]), q = j.quotes[hKey(it)];
+          if (q) { r.price = q.priceEur; r.symbol = r.sym; r.logo = q.logo || ""; r.state = "ok"; QUOTES[hKey(it)] = q; } else r.state = "fail"; } catch { r.state = "fail"; }
+        if (rows === mine) drawPrev(); continue;
+      }
       try {
         const list = await MARKET.search(r.isin, "stock");
         const x = list.length ? pickListing(list) : null;
@@ -3763,7 +3799,7 @@ function importDepotDialog(done, preAcc) {
       if (t?.id) return accById(t.id) || def;
       if (t?.create) {
         const k = t.create.plat.key + ":" + t.create.cat;
-        if (!created[k]) { const src = t.create.plat.accs.find(a => a.domain) || t.create.plat.accs[0]; created[k] = {id: slugId(t.create.cat, t.create.plat.name), name: t.create.plat.name, provider: src.provider || t.create.plat.name, ...(src.domain ? {domain: src.domain} : {}), cat: t.create.cat, holdings: [], archived: false}; DB.accounts.push(created[k]); }
+        if (!created[k]) { const src = t.create.plat.accs.find(a => a.domain) || t.create.plat.accs[0] || {}; created[k] = {id: slugId(t.create.cat, t.create.plat.name), name: t.create.plat.name, provider: src.provider || t.create.plat.name, ...(src.domain ? {domain: src.domain} : {}), cat: t.create.cat, holdings: [], archived: false}; DB.accounts.push(created[k]); }
         return created[k];
       }
       return def;
@@ -3771,8 +3807,18 @@ function importDepotDialog(done, preAcc) {
     let n = 0;
     rows.filter(r => r.symbol && r.qty > 0).forEach(r => {
       const a = accFor(r); if (!a) return;
-      if ($("#dp-repl", dlg).checked && !touched.has(a)) a.holdings = a.holdings.filter(h => h.type !== "stock");
+      if ($("#dp-repl", dlg).checked && !touched.has(a)) { const kinds = new Set(rows.filter(x => accFor(x) === a).map(x => x.kind || "stock")); a.holdings = a.holdings.filter(h => !kinds.has(h.type)); }
       touched.add(a);
+      if (r.kind === "cash") {
+        const ex = a.holdings.find(h => h.type === "cash" && h.name === r.name), item = {type: "cash", symbol: "", name: r.name, qty: round2(r.qty), ...(r.ccy !== "EUR" ? {ccy: r.ccy, rateEur: r.price} : {}), ...(a.cat === "kredite" ? {neg: true} : {})};
+        if (ex) { delete ex.ccy; Object.assign(ex, item); } else a.holdings.push({id: "h" + uid(), ...item});
+        n++; return;
+      }
+      if (r.kind === "crypto") {
+        const ex = a.holdings.find(h => h.type === "crypto" && h.symbol === r.sym && h.name === r.name), item = {type: "crypto", symbol: r.sym, name: r.name, qty: r.qty, logo: r.logo || "", lastPrice: r.price, ...(isAddr(r.sym) ? {src: "dex"} : {})};
+        if (ex) Object.assign(ex, item); else a.holdings.push({id: "h" + uid(), ...item});
+        n++; return;
+      }
       const ex = a.holdings.find(h => h.isin === r.isin || h.symbol === r.symbol);
       const cost = r.costPer ? {cost: {per: r.costPer}} : {};
       if (ex) Object.assign(ex, {qty: r.qty}, cost); else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, ...(r.ov ? {ov: r.ov} : {}), name: r.name || r.symbol, qty: r.qty, ...cost});

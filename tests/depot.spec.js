@@ -88,3 +88,19 @@ test("Logos: Firmenlogo per ISIN, ETF-Anbieter, Münzbild wählbar", async ({pag
   await page.click("#hf button[type=submit]");
   expect(await page.evaluate(() => DB.accounts.find(a => a.id === "gold").holdings[0].coin)).toBe("phil");
 });
+
+test("Depot einfügen: Beträge (auch USD) und Krypto, neue Plattform wird angelegt", async ({page}) => {
+  await openWithDemo(page);
+  await page.goto("./#depot");
+  await page.click("#d-imp");
+  await page.fill("#dp-txt", "Konto: Testbank · Konten & Tagesgeld\nBetrag | Festgeld 5 % | 1.000,50 EUR\nBetrag | Dollar-Konto | 108,70 USD\nKonto: Testbank · Krypto\nKrypto | Bitcoin Earn | bitcoin | 0,01\nKrypto | Bitcoin Spar | bitcoin | 0,02");
+  await expect(page.locator("#dp-prev")).toContainText("Testbank · Konten & Tagesgeld (neu)");
+  await expect(page.locator("#dp-ok")).toBeEnabled();
+  await page.click("#dp-ok");
+  await page.evaluate(() => refreshQuotes(true));
+  const r = await page.evaluate(() => DB.accounts.filter(a => a.provider === "Testbank").map(a => [a.cat, a.holdings.map(h => [h.name, h.qty, h.ccy || "EUR", Math.round(hVal(h).value * 100) / 100])]).sort());
+  expect(r).toEqual([
+    ["krypto", [["Bitcoin Earn", 0.01, "EUR", 800], ["Bitcoin Spar", 0.02, "EUR", 1600]]],
+    ["liquiditaet", [["Festgeld 5 %", 1000.5, "EUR", 1000.5], ["Dollar-Konto", 108.7, "USD", 100]]],
+  ]);
+});

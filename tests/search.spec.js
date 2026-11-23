@@ -21,7 +21,7 @@ test("Schrägstrich öffnet die Suche, Seiten sind direkt erreichbar", async ({p
   await openWithDemo(page);
   await page.keyboard.press("/");
   await expect(page.locator("#q-in")).toBeFocused();
-  await page.keyboard.type("verlauf");
+  await page.locator("#q-in").fill("verlauf");
   await expect(page.locator('.q-item[aria-selected="true"]')).toContainText("Verlauf");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/#verlauf/);
