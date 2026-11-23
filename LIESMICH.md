@@ -14,7 +14,7 @@ Voraussetzung: Python 3 (kostenlos, https://www.python.org/downloads/).
   was sich bewegt hat, und speicherst. Eingaben wie `629*4,69` werden ausgerechnet.
 - **Live-Kurse:** Bei *Konten* ein Konto auf „Wertpapier“ oder „Krypto“ stellen, Symbol suchen
   (Name, Ticker oder ISIN) und Stückzahl eintragen. Der Wert wird dann automatisch mit dem
-  aktuellen Kurs berechnet (Yahoo Finance bzw. CoinGecko, in Euro umgerechnet).
+  aktuellen Kurs berechnet (onvista bzw. CoinGecko, in Euro).
 - **Verlauf:** Tabelle aller Stichtage wie in der Excel, aufklappbar bis aufs einzelne Konto,
   CSV-Export für Excel.
 

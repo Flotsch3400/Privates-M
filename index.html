@@ -207,7 +207,8 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
 .plat-h{display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:8px}
 .plat-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);cursor:pointer;min-width:0}
 .plat-row:hover b{color:var(--brand-ink)}
-.plat-row .nm{min-width:0}.plat-row .nm small{display:block;color:var(--ink-3);font-size:12px}
+.plat-row .nm{min-width:0;flex:1 1 auto}.plat-row .nm > span{min-width:0}.plat-row .nm small{display:block;color:var(--ink-3);font-size:12px;white-space:normal;overflow-wrap:anywhere}.plat-row > .btn,.plat-row > .num{flex:none}
+.dlg-b > *{min-width:0}
 .plat-cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-top:6px}
 .plat-cat{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:inherit;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;min-width:0}
 .plat-cat:hover{border-color:var(--brand)}
@@ -217,6 +218,10 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
 .plat-chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:inherit;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
 .plat-chip:hover{border-color:var(--brand)}
 .plat-chip small{color:var(--ink-3);font-weight:500}
+.pi-bar{max-width:1200px;margin:0 auto 16px}
+.pi-bar .msg{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pi-bar .msg > span{flex:1 1 220px;min-width:0}
+#st-live.click{cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .pos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
 .pos-row:first-child{border-top:0}
 .pos-row .nm{font-weight:550;display:flex;align-items:center;gap:10px;min-width:0}
@@ -519,7 +524,7 @@ html{scroll-behavior:smooth}
       <div class="seg theme-seg" role="group" aria-label="Darstellung"></div>
     </div>
   </aside>
-  <main><div class="mobile-top"><a class="brand" href="#uebersicht" style="padding:0"><svg class="logo-lockup" viewBox="0 0 239 64" height="26" role="img" aria-label="Tracky"><rect width="64" height="64" rx="15" fill="#0B0F1A"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="var(--line-2)" stroke-width="1.5" opacity=".6"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(82 50.25)" d="M1.1025181208053692 -30.03749369127517H12.17670013422819V0.0H19.722824161073827V-30.03749369127517H30.772505771812085V-36.5056H1.1025181208053692Z M33.16864515436242 0.0H40.39626394630873V-14.01423033557047C40.39626394630873 -17.909794362416108 42.576799785234904 -19.967828187919466 45.54134851006712 -19.967828187919466C46.766368644295305 -19.967828187919466 48.11389079194632 -19.86982657718121 48.65289965100672 -19.845326174496645V-25.99492724832215C48.064889986577185 -26.019427651006716 47.35437830872483 -26.04392805369128 46.52136461744967 -26.04392805369128C43.115808644295306 -26.04392805369128 41.155776429530206 -24.57390389261745 40.20026072483222 -21.462352751677855H40.12675951677853V-25.87242523489933H33.16864515436242Z M58.546162255033565 0.4410072483221477C62.5152274899329 0.4410072483221477 64.74476413422819 -1.127018523489933 66.11678668456376 -3.6505600000000005H66.21478829530201V0.0H73.27090426845638V-17.54228832214765C73.27090426845638 -23.079379328859062 69.2038374228188 -26.411434093959734 62.12322104697987 -26.411434093959734C55.01810426845638 -26.411434093959734 50.804035006711416 -23.030378523489937 50.48552977181209 -17.689290738255036H57.27214131543625C57.443644134228194 -19.673823355704698 59.207673127516784 -21.04584590604027 61.902717422818796 -21.04584590604027C64.54876091275169 -21.04584590604027 66.14128708724833 -19.722824161073827 66.14128708724833 -17.811792751677853V-17.640289932885906C66.14128708724833 -15.974262550335572 64.47525970469799 -15.753758926174498 59.74668198657719 -15.288251275167786C54.356593395973164 -14.798243221476511 49.65251608053692 -13.132215838926175 49.65251608053692 -7.301120000000001C49.65251608053692 -2.1315350335570473 53.37657728859061 0.4410072483221477 58.546162255033565 0.4410072483221477ZM60.55519527516779 -4.581575302013423C58.12965540939598 -4.581575302013423 56.5616296375839 -5.659593020134229 56.5616296375839 -7.497123221476511C56.5616296375839 -9.555157046979867 58.521661852349 -10.510672751677854 60.99620252348994 -10.87817879194631C63.3237407785235 -11.245684832214765 65.35727420134229 -11.588690469798658 66.19028789261746 -12.05419812080537V-9.457155436241612C66.19028789261746 -6.664109530201343 64.03425245637584 -4.581575302013423 60.55519527516779 -4.581575302013423Z M88.97076230872484 0.5880096644295303C95.85537546308726 0.5880096644295303 100.80445680536914 -3.7485616107382556 101.12296204026848 -9.726659865771813H94.09134646979867C93.62583881879196 -7.007115167785235 91.98431183892619 -5.243086174496645 89.0687639194631 -5.243086174496645C85.44270432214766 -5.243086174496645 83.26216848322149 -8.207634899328859 83.26216848322149 -12.911712214765101C83.26216848322149 -17.640289932885906 85.4182039194631 -20.629339060402685 89.0687639194631 -20.629339060402685C91.95981143624162 -20.629339060402685 93.77284123489935 -18.840809664429532 94.1403472751678 -16.194766174496646H101.12296204026848C100.65745438926176 -22.22186523489933 95.78187425503357 -26.460434899328863 88.97076230872484 -26.460434899328863C81.20413465771813 -26.460434899328863 75.98554888590606 -20.923343892617453 75.98554888590606 -12.911712214765101C75.98554888590606 -4.9000805369127525 81.17963425503356 0.5880096644295303 88.97076230872484 0.5880096644295303Z M103.71510464429531 0.0H110.94272343624162V-8.207634899328859L113.02525766442955 -10.510672751677854L120.64488289932888 0.0H129.09752182550338L118.43984665771814 -14.65124080536913L128.55851296644298 -25.87242523489933H120.08137363758391L111.0162246442953 -15.974262550335572H110.94272343624162V-36.5056H103.71510464429531Z M130.70964832214767 10.241168322147653H135.4872268456376C139.50529288590604 10.241168322147653 142.00433395973155 8.305636510067115 143.64586093959733 3.993565637583893L155.03854818791947 -25.87242523489933H147.54142496644297L143.18035328859062 -13.083215033557048C142.56784322147652 -11.245684832214765 142.00433395973155 -9.359153825503357 141.44082469798659 -7.497123221476511C140.90181583892618 -9.359153825503357 140.31380617449665 -11.221184429530203 139.72579651006714 -13.083215033557048L135.38922523489936 -25.87242523489933H127.81860080536914L137.76576429530203 -0.09800161073825504L137.05525261744967 1.7885293959731545C136.3692413422819 3.773062013422819 135.70773046979866 4.532574496644296 133.99270228187922 4.532574496644296H130.70964832214767Z" fill="currentColor"/></svg></a><div class="actions" style="gap:6px;flex-wrap:nowrap"><button class="btn icon sm" type="button" data-search aria-label="Suchen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button><button class="btn icon sm" type="button" data-priv></button><div class="seg theme-seg" role="group" aria-label="Darstellung"></div></div></div><div class="wrap" id="view"></div></main>
+  <main><div class="mobile-top"><a class="brand" href="#uebersicht" style="padding:0"><svg class="logo-lockup" viewBox="0 0 239 64" height="26" role="img" aria-label="Tracky"><rect width="64" height="64" rx="15" fill="#0B0F1A"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="var(--line-2)" stroke-width="1.5" opacity=".6"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(82 50.25)" d="M1.1025181208053692 -30.03749369127517H12.17670013422819V0.0H19.722824161073827V-30.03749369127517H30.772505771812085V-36.5056H1.1025181208053692Z M33.16864515436242 0.0H40.39626394630873V-14.01423033557047C40.39626394630873 -17.909794362416108 42.576799785234904 -19.967828187919466 45.54134851006712 -19.967828187919466C46.766368644295305 -19.967828187919466 48.11389079194632 -19.86982657718121 48.65289965100672 -19.845326174496645V-25.99492724832215C48.064889986577185 -26.019427651006716 47.35437830872483 -26.04392805369128 46.52136461744967 -26.04392805369128C43.115808644295306 -26.04392805369128 41.155776429530206 -24.57390389261745 40.20026072483222 -21.462352751677855H40.12675951677853V-25.87242523489933H33.16864515436242Z M58.546162255033565 0.4410072483221477C62.5152274899329 0.4410072483221477 64.74476413422819 -1.127018523489933 66.11678668456376 -3.6505600000000005H66.21478829530201V0.0H73.27090426845638V-17.54228832214765C73.27090426845638 -23.079379328859062 69.2038374228188 -26.411434093959734 62.12322104697987 -26.411434093959734C55.01810426845638 -26.411434093959734 50.804035006711416 -23.030378523489937 50.48552977181209 -17.689290738255036H57.27214131543625C57.443644134228194 -19.673823355704698 59.207673127516784 -21.04584590604027 61.902717422818796 -21.04584590604027C64.54876091275169 -21.04584590604027 66.14128708724833 -19.722824161073827 66.14128708724833 -17.811792751677853V-17.640289932885906C66.14128708724833 -15.974262550335572 64.47525970469799 -15.753758926174498 59.74668198657719 -15.288251275167786C54.356593395973164 -14.798243221476511 49.65251608053692 -13.132215838926175 49.65251608053692 -7.301120000000001C49.65251608053692 -2.1315350335570473 53.37657728859061 0.4410072483221477 58.546162255033565 0.4410072483221477ZM60.55519527516779 -4.581575302013423C58.12965540939598 -4.581575302013423 56.5616296375839 -5.659593020134229 56.5616296375839 -7.497123221476511C56.5616296375839 -9.555157046979867 58.521661852349 -10.510672751677854 60.99620252348994 -10.87817879194631C63.3237407785235 -11.245684832214765 65.35727420134229 -11.588690469798658 66.19028789261746 -12.05419812080537V-9.457155436241612C66.19028789261746 -6.664109530201343 64.03425245637584 -4.581575302013423 60.55519527516779 -4.581575302013423Z M88.97076230872484 0.5880096644295303C95.85537546308726 0.5880096644295303 100.80445680536914 -3.7485616107382556 101.12296204026848 -9.726659865771813H94.09134646979867C93.62583881879196 -7.007115167785235 91.98431183892619 -5.243086174496645 89.0687639194631 -5.243086174496645C85.44270432214766 -5.243086174496645 83.26216848322149 -8.207634899328859 83.26216848322149 -12.911712214765101C83.26216848322149 -17.640289932885906 85.4182039194631 -20.629339060402685 89.0687639194631 -20.629339060402685C91.95981143624162 -20.629339060402685 93.77284123489935 -18.840809664429532 94.1403472751678 -16.194766174496646H101.12296204026848C100.65745438926176 -22.22186523489933 95.78187425503357 -26.460434899328863 88.97076230872484 -26.460434899328863C81.20413465771813 -26.460434899328863 75.98554888590606 -20.923343892617453 75.98554888590606 -12.911712214765101C75.98554888590606 -4.9000805369127525 81.17963425503356 0.5880096644295303 88.97076230872484 0.5880096644295303Z M103.71510464429531 0.0H110.94272343624162V-8.207634899328859L113.02525766442955 -10.510672751677854L120.64488289932888 0.0H129.09752182550338L118.43984665771814 -14.65124080536913L128.55851296644298 -25.87242523489933H120.08137363758391L111.0162246442953 -15.974262550335572H110.94272343624162V-36.5056H103.71510464429531Z M130.70964832214767 10.241168322147653H135.4872268456376C139.50529288590604 10.241168322147653 142.00433395973155 8.305636510067115 143.64586093959733 3.993565637583893L155.03854818791947 -25.87242523489933H147.54142496644297L143.18035328859062 -13.083215033557048C142.56784322147652 -11.245684832214765 142.00433395973155 -9.359153825503357 141.44082469798659 -7.497123221476511C140.90181583892618 -9.359153825503357 140.31380617449665 -11.221184429530203 139.72579651006714 -13.083215033557048L135.38922523489936 -25.87242523489933H127.81860080536914L137.76576429530203 -0.09800161073825504L137.05525261744967 1.7885293959731545C136.3692413422819 3.773062013422819 135.70773046979866 4.532574496644296 133.99270228187922 4.532574496644296H130.70964832214767Z" fill="currentColor"/></svg></a><div class="actions" style="gap:6px;flex-wrap:nowrap"><button class="btn icon sm" type="button" data-search aria-label="Suchen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button><button class="btn icon sm" type="button" data-priv></button><div class="seg theme-seg" role="group" aria-label="Darstellung"></div></div></div><div class="pi-bar" id="pi-bar" hidden></div><div class="wrap" id="view"></div></main>
   <nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
 </div>
 <dialog id="dlg"></dialog>
@@ -1019,36 +1024,77 @@ const RELAYS = [
   u => "https://api.codetabs.com/v1/proxy/?quest=" + encodeURIComponent(u),
   u => "https://corsproxy.io/?url=" + encodeURIComponent(u),
 ];
-let relayFirst = store.get("relay", 0) % RELAYS.length;
 async function getJSON(url, opts = {}, ms = 10000) {
   const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
   try { const r = await fetch(url, {...opts, signal: ctl.signal}); if (!r.ok) throw new Error("HTTP " + r.status); return await r.json(); }
   finally { clearTimeout(t); }
 }
+/** Yahoo Finance is only reachable through public CORS relays – asked in parallel, first answer wins. Fallback only. */
 async function viaRelay(url) {
-  let last;
-  for (let k = 0; k < RELAYS.length; k++) {
-    const i = (relayFirst + k) % RELAYS.length;
-    try { const j = await getJSON(RELAYS[i](url)); if (i !== relayFirst) { relayFirst = i; store.set("relay", i); } return j; }
-    catch (e) { last = e; }
-  }
-  throw last || new Error("Keine Verbindung");
+  try { return await Promise.any(RELAYS.map(r => getJSON(r(url), {}, 7000))); }
+  catch { throw new Error("Keine Verbindung"); }
 }
 async function yahoo(url) {
   if (MODE === "server") throw new Error("server");
   return viaRelay(url);
 }
 const FX = {};
+let fxRates = null;
+/** Euro value of one unit of a currency. Coinbase exchange rates (browser-friendly), then Frankfurter, then Yahoo. */
 async function fxToEur(ccy) {
   if (!ccy || ccy === "EUR") return 1;
   let f = 1, c = ccy;
   if (ccy === "GBp" || ccy === "GBX") { f = 0.01; c = "GBP"; }
   if (ccy === "ZAc") { f = 0.01; c = "ZAR"; }
   if (ccy === "ILA") { f = 0.01; c = "ILS"; }
-  if (!FX[c]) { const j = await yahoo(`https://query1.finance.yahoo.com/v8/finance/chart/EUR${c.toUpperCase()}=X?range=1d&interval=1d`); FX[c] = j.chart.result[0].meta.regularMarketPrice; }
+  c = c.toUpperCase();
+  if (!FX[c]) {
+    try {
+      fxRates ||= getJSON("https://api.coinbase.com/v2/exchange-rates?currency=EUR", {}, 8000).then(j => j.data.rates).catch(e => { fxRates = null; throw e; });
+      const r = await fxRates; if (!(+r[c] > 0)) throw new Error("fx");
+      FX[c] = +r[c];
+    } catch {
+      try { const j = await getJSON(`https://api.frankfurter.dev/v1/latest?from=EUR&to=${c}`, {}, 8000); FX[c] = +j.rates[c]; }
+      catch { const j = await yahoo(`https://query1.finance.yahoo.com/v8/finance/chart/EUR${c}=X?range=1d&interval=1d`); FX[c] = j.chart.result[0].meta.regularMarketPrice; }
+    }
+  }
   return f / FX[c];
 }
+/* onvista: shares, ETFs, funds, ETCs and precious metals with euro quotes from German exchanges; allows browser calls. */
+const OV = "https://api.onvista.de/api/v1";
+const OV_KINDS = ["STOCK", "FUND", "DERIVATIVE", "CERTIFICATE", "BOND", "PRECIOUS_METAL"];
+const OV_LABEL = {STOCK: "Aktie", FUND: "Fonds / ETF", DERIVATIVE: "ETC / Zertifikat", CERTIFICATE: "Zertifikat", BOND: "Anleihe", PRECIOUS_METAL: "Edelmetall"};
+const isIsin = v => /^[A-Z]{2}[A-Z0-9]{9}\d$/.test(v || "");
+async function ovSearch(q) {
+  const j = await getJSON(`${OV}/instruments/query?searchValue=${encodeURIComponent(q)}`, {}, 9000);
+  return (j.list || []).filter(x => OV_KINDS.includes(x.entityType) && x.entityValue);
+}
+async function ovQuote(ref) {
+  const d = await getJSON(`${OV}/instruments/${ref.type}/${encodeURIComponent(ref.id)}/snapshot`, {}, 9000);
+  const list = (d.quoteList?.list || []).filter(x => x.last != null);
+  let q = d.quote?.last != null ? d.quote : null;
+  if (!q || q.isoCurrency !== "EUR") q = list.find(x => x.isoCurrency === "EUR") || q || list[0];
+  if (!q) throw new Error("Kein Kurs");
+  const fx = await fxToEur(q.isoCurrency || "EUR"), prev = q.previousLast;
+  return {symbol: d.instrument?.isin || "", name: d.instrument?.name || "", price: q.last, currency: q.isoCurrency || "EUR", priceEur: q.last * fx,
+    change: prev ? q.last / prev - 1 : q.performancePct != null ? q.performancePct / 100 : null, time: q.datetimeLast, source: `onvista · ${q.market?.name || "Börse"}`};
+}
+/** The onvista instrument behind a holding: stored, else by ISIN, else by ticker (EUNL.DE → EUNL, AAPL), else by name. null = not found. */
+async function ovResolve(h) {
+  if (h.ov?.type && h.ov?.id) return h.ov;
+  const base = String(h.symbol || "").split(".")[0].toUpperCase(), word = t => norm(t).split(/[^a-z0-9]+/).filter(Boolean)[0] || "";
+  const tries = [[h.isin, "isin"], [isIsin(h.symbol) ? h.symbol : null, "isin"], [/^[A-Z0-9-]{1,12}$/.test(base) ? base : null, "sym"], [h.name, "name"]].filter(([v], i, a) => v && a.findIndex(x => x[0] === v) === i);
+  for (const [t, how] of tries) {
+    const list = (await ovSearch(t)).filter(x => x.entityType !== "PRECIOUS_METAL" && (x.entityType !== "BOND" || how === "isin"));
+    const hit = how === "isin" ? list.find(x => x.isin === t) || list[0]
+      : how === "sym" ? list.find(x => (x.symbol || "").toUpperCase() === base) || list.find(x => ["STOCK", "FUND", "DERIVATIVE"].includes(x.entityType))
+      : list.find(x => word(x.name) === word(t));
+    if (hit) return {type: hit.entityType, id: hit.entityValue, isin: hit.isin || ""};
+  }
+  return null;
+}
 async function yahooQuote(sym) {
+  if (!sym || isIsin(sym) || /^OV\d+$/.test(sym)) throw new Error("kein Yahoo-Symbol");
   const j = await yahoo(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=5d&interval=1d`);
   const r = j.chart.result[0], m = r.meta;
   const closes = (r.indicators?.quote?.[0]?.close || []).filter(x => x != null);
@@ -1057,10 +1103,10 @@ async function yahooQuote(sym) {
     priceEur: m.regularMarketPrice * await fxToEur(m.currency), change: prev ? m.regularMarketPrice / prev - 1 : null, time: m.regularMarketTime, source: "Yahoo Finance"};
 }
 const METALS = {
-  XAU: {name: "Gold", yahoo: "GC=F", cg: "pax-gold"},
-  XAG: {name: "Silber", yahoo: "SI=F", cg: "kinesis-silver"},
-  XPT: {name: "Platin", yahoo: "PL=F"},
-  XPD: {name: "Palladium", yahoo: "PA=F"},
+  XAU: {name: "Gold", yahoo: "GC=F", cg: "pax-gold", ov: "1326189"},
+  XAG: {name: "Silber", yahoo: "SI=F", cg: "kinesis-silver", ov: "1288094"},
+  XPT: {name: "Platin", yahoo: "PL=F", ov: "1031430"},
+  XPD: {name: "Palladium", yahoo: "PA=F", ov: "1031431"},
 };
 const OZ_G = 31.1034768;
 const CHAINS = {
@@ -1093,10 +1139,24 @@ async function walletBalance(chain, addr) {
 let usdEur = null;
 async function usdToEur() {
   if (usdEur) return usdEur;
-  try { const j = await getJSON("https://api.frankfurter.app/latest?from=USD&to=EUR"); usdEur = j.rates.EUR; }
+  try { usdEur = await fxToEur("USD"); }
   catch { const j = await getJSON("https://api.coingecko.com/api/v3/simple/price?ids=tether&vs_currencies=eur"); usdEur = j.tether.eur; }
   return usdEur;
 }
+/* Crypto fallback when CoinGecko is throttled or does not know the coin: by ticker on Binance, then Coinbase. */
+const CG_TICKER = {bitcoin: "BTC", ethereum: "ETH", solana: "SOL", "usd-coin": "USDC", tether: "USDT", ripple: "XRP", cardano: "ADA", dogecoin: "DOGE", polkadot: "DOT", "avalanche-2": "AVAX", chainlink: "LINK", litecoin: "LTC",
+  "polygon-ecosystem-token": "POL", "matic-network": "POL", binancecoin: "BNB", tron: "TRX", stellar: "XLM", algorand: "ALGO", cosmos: "ATOM", near: "NEAR", "shiba-inu": "SHIB", uniswap: "UNI", okb: "OKB", "pax-gold": "PAXG",
+  "bitcoin-cash": "BCH", "ethereum-classic": "ETC", "hedera-hashgraph": "HBAR", "internet-computer": "ICP", aptos: "APT", sui: "SUI", arbitrum: "ARB", optimism: "OP", pepe: "PEPE", "the-open-network": "TON", "wrapped-bitcoin": "WBTC", dai: "DAI", "euro-coin": "EURC"};
+const coinTicker = h => (h.ticker || CG_TICKER[h.symbol] || /\(([A-Za-z0-9]{2,10})\)\s*$/.exec(h.name || "")?.[1] || (/^[A-Za-z0-9]{2,5}$/.test(h.symbol || "") ? h.symbol : "")).toUpperCase();
+async function tickerQuote(t) {
+  const bv = sym => getJSON(`https://data-api.binance.vision/api/v3/ticker/24hr?symbol=${sym}`, {}, 6000);
+  try { const j = await bv(t + "EUR"); if (+j.lastPrice > 0) return {priceEur: +j.lastPrice, price: +j.lastPrice, currency: "EUR", change: +j.priceChangePercent / 100, source: "Binance", time: new Date().toISOString()}; } catch {}
+  try { const j = await bv(t + "USDT"); if (+j.lastPrice > 0) return {priceEur: +j.lastPrice * await usdToEur(), price: +j.lastPrice, currency: "USD", change: +j.priceChangePercent / 100, source: "Binance", time: new Date().toISOString()}; } catch {}
+  const j = await getJSON(`https://api.coinbase.com/v2/prices/${t}-EUR/spot`, {}, 6000);
+  if (!(+j.data?.amount > 0)) throw new Error("Kein Kurs");
+  return {priceEur: +j.data.amount, price: +j.data.amount, currency: "EUR", change: null, source: "Coinbase", time: new Date().toISOString()};
+}
+const CG_CACHE = {}; let cgBlockedUntil = 0;
 const isAddr = v => /^0x[a-fA-F0-9]{40}$/.test(v) || /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(v);
 /** Best DEX pair per token address (highest liquidity), from DexScreener. */
 async function dexQuotes(addrs) {
@@ -1119,64 +1179,83 @@ const hKey = h => h.type === "wallet" ? `wallet:${h.chain}:${h.address}` : `${h.
 const MARKET = {
   /** items: holdings ({type, symbol, chain, address}). Returns {quotes: {key: quote}, errors: {key: text}}. */
   async quotes(items) {
-    const quotes = {}, errors = {};
-    const uniq = new Map(items.map(h => [hKey(h), h]));
-    const stocks = [], metals = [], coins = new Set(), wallets = [], dexes = [];
+    const quotes = {}, errors = {}, resolved = {};
+    const uniq = new Map(items.filter(h => h.type !== "cash").map(h => [hKey(h), h]));
+    const stocks = [], metals = [], coins = new Set(), wallets = [], dexes = [], cryptos = [];
     for (const h of uniq.values()) {
-      if (h.type === "stock") stocks.push(h.symbol);
+      if (h.type === "stock") stocks.push(h);
       else if (h.type === "metal") metals.push(h.symbol);
       else if (h.type === "crypto" && (h.src === "dex" || isAddr(h.symbol))) dexes.push(h.symbol);
-      else if (h.type === "crypto") coins.add(h.symbol);
+      else if (h.type === "crypto") { coins.add(h.symbol); cryptos.push(h); }
       else if (h.type === "wallet") { wallets.push(h); coins.add(CHAINS[h.chain]?.coin); }
     }
     metals.forEach(m => METALS[m]?.cg && coins.add(METALS[m].cg));
-    // Yahoo symbols (shares, ETFs, funds and metal futures)
-    const ySyms = [...stocks, ...metals.map(m => METALS[m]?.yahoo).filter(Boolean)];
-    let yq = {};
-    if (ySyms.length) {
-      if (MODE === "server") {
-        try { const j = await getJSON(`api/quotes?stocks=${encodeURIComponent(ySyms.join(","))}`); Object.entries(j.quotes || {}).forEach(([k, q]) => yq[k.slice(6)] = q); } catch {}
-      } else {
-        await Promise.all(ySyms.map(async s => { try { yq[s] = await yahooQuote(s); } catch {} }));
-      }
+    // local server (Yahoo without relays) first, when it runs
+    let srv = {};
+    if (MODE === "server" && stocks.length) {
+      try { const j = await getJSON(`api/quotes?stocks=${encodeURIComponent(stocks.map(h => h.symbol).join(","))}`); Object.entries(j.quotes || {}).forEach(([k, q]) => srv[k.slice(6)] = q); } catch {}
     }
-    // CoinGecko
-    let cg = {};
-    if (coins.size) {
-      const ids = [...coins].filter(Boolean);
+    // shares, ETFs, funds, ETCs: onvista, Yahoo as fallback
+    const stockJob = Promise.all(stocks.map(async h => {
+      const k = hKey(h);
+      if (srv[h.symbol]) { quotes[k] = srv[h.symbol]; return; }
+      let why = "Kursquelle gerade nicht erreichbar";
       try {
-        const j = await getJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&per_page=250&ids=${encodeURIComponent(ids.join(","))}`);
-        j.forEach(c => { if (c.current_price != null) cg[c.id] = {priceEur: c.current_price, change: (c.price_change_percentage_24h ?? 0) / 100, name: c.name, logo: c.image, time: c.last_updated, source: "CoinGecko", currency: "EUR"}; });
+        const ref = await ovResolve(h);
+        if (ref) {
+          if (!h.ov) resolved[k] = {ov: {type: ref.type, id: ref.id}, ...(ref.isin && !h.isin ? {isin: ref.isin} : {})};
+          quotes[k] = await ovQuote(ref); return;
+        }
+        why = "Wertpapier nicht gefunden – bitte neu suchen (Name, ISIN oder WKN)";
+      } catch {}
+      try { quotes[k] = await yahooQuote(h.symbol); } catch { errors[k] = why; }
+    }));
+    // CoinGecko (cached for a minute; paused after a refusal)
+    const cg = {}, now = Date.now();
+    let cgFailed = false;
+    const ids = [...coins].filter(Boolean);
+    ids.forEach(id => { if (CG_CACHE[id] && now - CG_CACHE[id].t < 60000) cg[id] = CG_CACHE[id].q; });
+    const need = ids.filter(id => !cg[id]);
+    if (need.length && now > cgBlockedUntil) {
+      try {
+        const j = await getJSON(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=eur&per_page=250&ids=${encodeURIComponent(need.join(","))}`, {}, 9000);
+        j.forEach(c => { if (c.current_price != null) { cg[c.id] = {priceEur: c.current_price, change: (c.price_change_percentage_24h ?? 0) / 100, name: c.name, logo: c.image, time: c.last_updated, source: "CoinGecko", currency: "EUR"}; CG_CACHE[c.id] = {t: now, q: cg[c.id]}; } });
       } catch {
-        if (MODE === "server") { try { const j = await getJSON(`api/quotes?crypto=${encodeURIComponent(ids.join(","))}`); Object.entries(j.quotes || {}).forEach(([k, q]) => cg[k.slice(7)] = q); } catch {} }
+        cgFailed = true; cgBlockedUntil = now + 60000;
+        if (MODE === "server") { try { const j = await getJSON(`api/quotes?crypto=${encodeURIComponent(need.join(","))}`); Object.entries(j.quotes || {}).forEach(([k, q]) => cg[k.slice(7)] = q); } catch {} }
       }
-    }
-    stocks.forEach(s => yq[s] ? quotes["stock:" + s] = yq[s] : errors["stock:" + s] = "Kein Kurs gefunden");
-    metals.forEach(m => {
-      const def = METALS[m]; const y = def && yq[def.yahoo];
-      if (y) quotes["metal:" + m] = {...y, name: def.name, symbol: m};
-      else if (def?.cg && cg[def.cg]) quotes["metal:" + m] = {...cg[def.cg], name: def.name, symbol: m, source: "CoinGecko (Gold-Token)"};
-      else errors["metal:" + m] = "Kein Kurs gefunden";
-    });
+    } else if (need.length) cgFailed = true;
+    // coins CoinGecko did not deliver: by ticker
+    await Promise.all(cryptos.map(async h => {
+      const k = hKey(h);
+      if (cg[h.symbol]) { quotes[k] = cg[h.symbol]; return; }
+      const t = coinTicker(h);
+      try { if (!t) throw 0; quotes[k] = {...await tickerQuote(t), name: h.name || t}; if (!h.ticker) resolved[k] = {...resolved[k], ticker: t}; }
+      catch { errors[k] = cgFailed ? "CoinGecko gerade nicht erreichbar, kein Ersatzkurs gefunden" : "Coin nicht gefunden – bitte neu suchen"; }
+    }));
+    // precious metals: onvista spot price, then gold/silver tokens, then Yahoo futures
+    await Promise.all(metals.map(async m => {
+      const def = METALS[m], k = "metal:" + m;
+      if (!def) { errors[k] = "Unbekanntes Metall"; return; }
+      try { quotes[k] = {...await ovQuote({type: "PRECIOUS_METAL", id: def.ov}), name: def.name, symbol: m}; return; } catch {}
+      if (def.cg && cg[def.cg]) { quotes[k] = {...cg[def.cg], name: def.name, symbol: m, source: "CoinGecko (Gold-Token)"}; return; }
+      try { quotes[k] = {...await yahooQuote(def.yahoo), name: def.name, symbol: m}; } catch { errors[k] = "Kursquelle gerade nicht erreichbar"; }
+    }));
     if (dexes.length) {
       let dq = {};
       try { dq = await dexQuotes([...new Set(dexes)]); } catch {}
       dexes.forEach(a => dq[a] ? quotes["crypto:" + a] = dq[a] : errors["crypto:" + a] = "Kein Handelspaar gefunden");
     }
-    [...uniq.values()].filter(h => h.type === "crypto" && !(h.src === "dex" || isAddr(h.symbol))).forEach(h => {
-      if (cg[h.symbol]) quotes["crypto:" + h.symbol] = cg[h.symbol];
-      else errors["crypto:" + h.symbol] = "Unbekannte CoinGecko-ID oder nicht erreichbar";
-    });
     await Promise.all(wallets.map(async w => {
       const k = hKey(w), coin = CHAINS[w.chain]?.coin;
       try {
         const bal = await walletBalance(w.chain, w.address);
-        const p = cg[coin];
-        if (!p) throw new Error("Kein Kurs");
+        const p = cg[coin] || await tickerQuote(CHAINS[w.chain].ticker);
         quotes[k] = {...p, balance: bal, name: CHAINS[w.chain].name};
       } catch (e) { errors[k] = "Wallet nicht abrufbar"; }
     }));
-    return {quotes, errors};
+    await stockJob;
+    return {quotes, errors, resolved};
   },
   async search(q, type) {
     if (type === "crypto") {
@@ -1190,11 +1269,17 @@ const MARKET = {
         const a = p.baseToken?.address; if (!a || seen.has(a.toLowerCase())) return; seen.add(a.toLowerCase());
         if (dx.length < 6) dx.push({symbol: a, name: p.baseToken.name, ticker: p.baseToken.symbol, type: "DEX", exchange: `${p.chainId} · ${p.dexId} · Liquidität ${eur0((p.liquidity?.usd || 0) * (usdEur || 0.92))}`, logo: p.info?.imageUrl || "", src: "dex"});
       });
+      const tick = q.trim().toUpperCase();
+      if (cgR.status === "rejected" && /^[A-Z0-9]{2,10}$/.test(tick)) cg.push({symbol: tick, name: tick, ticker: tick, type: "Krypto", exchange: "per Kürzel (Binance / Coinbase)", logo: "", src: "cg"});
       if (!cg.length && !dx.length && cgR.status === "rejected" && dxR.status === "rejected") throw new Error("offline");
       return [...cg, ...dx];
     }
     let j;
-    if (MODE === "server") return await getJSON(`api/search?kind=stock&q=${encodeURIComponent(q)}`);
+    if (MODE === "server") { try { return await getJSON(`api/search?kind=stock&q=${encodeURIComponent(q)}`); } catch {} }
+    try {
+      const list = (await ovSearch(q)).filter(x => x.entityType !== "PRECIOUS_METAL");
+      if (list.length) return list.slice(0, 10).map(x => ({symbol: x.isin || "OV" + x.entityValue, name: x.name, ticker: x.symbol || "", type: OV_LABEL[x.entityType] || "", exchange: [x.isin, x.wkn && "WKN " + x.wkn].filter(Boolean).join(" · "), isin: x.isin || "", ov: {type: x.entityType, id: x.entityValue}}));
+    } catch {}
     j = await viaRelay(`https://query1.finance.yahoo.com/v1/finance/search?quotesCount=10&newsCount=0&q=${encodeURIComponent(q)}`);
     return (j.quotes || []).filter(x => x.symbol).map(x => ({symbol: x.symbol, name: x.longname || x.shortname || x.symbol, ticker: x.symbol, type: x.quoteType || "", exchange: x.exchDisp || ""}));
   },
@@ -1228,19 +1313,21 @@ const suggestions = () => DB.accounts.filter(a => !a.archived && a.coin && a.cat
 async function refreshQuotes(silent) {
   const items = [...allHoldings().map(x => x.h), ...suggestions().map(coinItem).filter(Boolean)];
   if (!items.length) { setLiveStatus(); return; }
-  if (quoteBusy) return quoteBusy;
+  if (quoteBusy) return quoteBusy.then(() => refreshQuotes(silent)); // positions added meanwhile get their price right after
   setLiveStatus("busy"); $$("[data-refresh]").forEach(b => b.classList.add("spin"));
   quoteBusy = (async () => {
     try {
       const j = await MARKET.quotes(items);
       Object.assign(QUOTES, j.quotes); QERR = j.errors;
+      const res = Object.entries(j.resolved || {});
+      if (res.length) allHoldings(true).forEach(({h}) => { const r = j.resolved[hKey(h)]; if (r) Object.entries(r).forEach(([f, v]) => { if (h[f] == null || h[f] === "") h[f] = v; }); });
       allHoldings(true).forEach(({h}) => { const q = j.quotes[hKey(h)]; if (q?.logo && h.type === "crypto" && h.logo !== q.logo) h.logo = q.logo; });
       DB.accounts.forEach(a => { if (a.coin && !a.coinLogo) { const q = j.quotes[coinKey(a)]; if (q?.logo) a.coinLogo = q.logo; } });
       if (Object.keys(j.quotes).length) {
         quotesAt = new Date();
         Object.entries(j.quotes).forEach(([k, q]) => DB.lastQuotes[k] = {priceEur: q.priceEur, balance: q.balance, at: quotesAt.toISOString()});
         save(false, true);
-      }
+      } else if (res.length) save(false, true);
       if (!silent) toast(!Object.keys(j.quotes).length ? "Keine Kurse erreichbar. Besteht eine Internetverbindung?" : Object.keys(QERR).length ? `Kurse aktualisiert, ${Object.keys(QERR).length} ohne Kurs` : "Kurse aktualisiert");
     } finally {
       quoteBusy = null; setLiveStatus(); $$("[data-refresh]").forEach(b => b.classList.remove("spin")); onQuotes();
@@ -1285,10 +1372,34 @@ function setLiveStatus(state) {
   if (!n) { dot.className = "dot"; t.textContent = "Noch keine Positionen mit Live-Kurs"; return; }
   if (state === "busy") { dot.className = "dot"; t.textContent = "Kurse werden geladen …"; return; }
   const errs = Object.keys(QERR).length;
+  t.classList.toggle("click", errs > 0); t.onclick = errs ? issuesDialog : null; t.setAttribute("role", errs ? "button" : "status"); issuesBar();
   if (quotesAt) { dot.className = errs ? "dot warn" : "dot ok"; t.textContent = `Live-Kurse ${quotesAt.toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"})}` + (errs ? ` · ${errs} ohne Kurs` : ""); }
   else { dot.className = "dot warn"; t.textContent = "Live-Kurse gerade nicht erreichbar"; }
 }
 let onQuotes = () => {};
+/** Positions without a current price (after a refresh attempt). */
+const priceIssues = () => allHoldings().filter(({h}) => h.type !== "cash").map(({h, a}) => ({h, a, x: hVal(h), err: QERR[hKey(h)]})).filter(r => r.err);
+const ISSUE_ROUTES = ["uebersicht", "depot", "aktien", "krypto", "konten", "bewertung"];
+function issuesBar() {
+  const el = $("#pi-bar"); if (!el) return;
+  const list = priceIssues(), show = list.length > 0 && ISSUE_ROUTES.includes(route);
+  el.hidden = !show; if (!show) { el.innerHTML = ""; return; }
+  el.innerHTML = `<div class="msg" role="status"><span><b>${list.length} Position${list.length > 1 ? "en" : ""} ohne aktuellen Kurs:</b> ${esc(list.slice(0, 3).map(r => r.h.name || r.h.symbol).join(", "))}${list.length > 3 ? " …" : ""}. Gerechnet wird mit dem letzten bekannten Kurs.</span><button class="btn sm" type="button" data-issues>Ansehen & beheben</button></div>`;
+}
+function issuesDialog() {
+  const list = priceIssues();
+  const when = r => r.x.at ? `letzter Kurs ${new Date(r.x.at).toLocaleDateString(LOCALE)}` : r.x.price != null ? "nur Startwert bekannt" : "noch nie ein Kurs";
+  openDlg(`<div class="dlg-h"><h2>Fehlende Kurse</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b" style="display:grid;gap:10px">${list.length ? `<p class="sub" style="margin:0">Für diese Positionen hat Tracky gerade keinen aktuellen Kurs gefunden. Öffne eine Position und such sie neu (bei Aktien und ETFs am besten per ISIN oder WKN) – dann klappt es in der Regel.</p>
+      <div>${list.map(r => `<div class="plat-row" data-ih="${r.h.id}" data-ia="${r.a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(r.h)}<span><b>${esc(r.h.name || r.h.symbol)}</b><small>${esc(r.a.name)} · ${esc(r.err)} · ${when(r)}</small></span></span><span class="btn sm">Beheben</span></div>`).join("")}</div>`
+      : '<div class="msg info">Alle Positionen haben einen aktuellen Kurs.</div>'}</div>
+    <div class="dlg-f"><button class="btn" type="button" id="pi-retry">${I.refresh} Erneut laden</button><div class="r"><button class="btn primary" type="button" data-x>Schließen</button></div></div>`);
+  dlg.onclose = null;
+  const back = () => (quoteBusy || Promise.resolve()).then(() => { if (!dlg.open) issuesDialog(); });
+  $$("[data-ih]", dlg).forEach(r => { const f = () => { const a = accById(r.dataset.ia); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.ih), () => onQuotes(), {back}); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+  $("#pi-retry", dlg).onclick = async e => { e.currentTarget.classList.add("spin"); await refreshQuotes(true); issuesDialog(); };
+}
+document.addEventListener("click", e => { if (e.target.closest("[data-issues]")) issuesDialog(); });
 
 /* ================= Celebrations (LottieFiles) ================= */
 const LOTTIE = {
@@ -1348,6 +1459,7 @@ function go(keep) {
   const v = $("#view"); v.innerHTML = "";
   animateCharts = !reduced() && !keep; clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
   VIEWS[route](v);
+  issuesBar();
   if (!keep) { v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); }
   paintPriv();
   $$("[data-search]").forEach(b => b.onclick = openSearch);
@@ -1843,7 +1955,7 @@ VIEWS.depot = v => {
     <div id="d-list" style="display:grid;gap:14px"></div>
     <div class="card"><div class="card-b" style="display:grid;gap:8px">
       <h3>Woher kommen die Kurse?</h3>
-      <p class="sub" style="margin:0">Aktien, ETFs, Fonds und Edelmetalle kommen von Yahoo Finance, Kryptowährungen von CoinGecko. Kleinere Token, die dort fehlen, findet die Suche über DexScreener direkt an den dezentralen Börsen, auch per Vertragsadresse. Alles wird in Euro umgerechnet. Bei Wallets liest die App das Guthaben deiner öffentlichen Adresse direkt aus der Blockchain: Bitcoin über mempool.space, Ethereum und Solana über PublicNode, Algorand über AlgoNode. Dafür brauchst du keine Zugangsdaten, und die App kann nichts verändern.</p>
+      <p class="sub" style="margin:0">Aktien, ETFs, Fonds, ETCs und Edelmetalle kommen von onvista (Euro-Kurse von Tradegate, Xetra & Co.), Kryptowährungen von CoinGecko, bei Ausfall von Binance oder Coinbase. Kleinere Token, die dort fehlen, findet die Suche über DexScreener direkt an den dezentralen Börsen, auch per Vertragsadresse. Alles wird in Euro umgerechnet. Bei Wallets liest die App das Guthaben deiner öffentlichen Adresse direkt aus der Blockchain: Bitcoin über mempool.space, Ethereum und Solana über PublicNode, Algorand über AlgoNode. Dafür brauchst du keine Zugangsdaten, und die App kann nichts verändern.</p>
       <p class="hint" style="margin:0">Flatex, Trade Republic und Robinhood bieten für Privatkunden keine offizielle Schnittstelle an. Deshalb gibt es „Depot einfügen“: Kopiere die Bestandsliste aus dem Onlinebanking hierher, die App erkennt die ISINs und Stückzahlen. Zugangsdaten zu Banken oder Börsen gehören aus Sicherheitsgründen nie in eine Webseite.</p>
     </div></div>`;
   const render = () => {
@@ -3410,7 +3522,7 @@ function holdingDialog(acc, h, done, preset) {
     if (t === "metal") { const sym = $("#h-mt", dlg).value, q = parseNum($("#h-qty", dlg).value); const oz = okNum(q) ? ($("#h-unit", dlg).value === "g" ? q / OZ_G : q) : null; return {type: t, symbol: sym, name: METALS[sym].name, qty: oz, cost}; }
     const sym = $("#h-sym", dlg).value.trim(); if (!sym) return null; const q = parseNum($("#h-qty", dlg).value);
     const src = t === "crypto" ? (st.src === "dex" || isAddr(sym) ? "dex" : "cg") : "";
-    return {type: t, symbol: sym, name: st.name || sym, isin: st.isin || "", logo: st.logo || "", qty: okNum(q) ? q : null, cost, ...(src ? {src} : {})};
+    return {type: t, symbol: sym, name: st.name || sym, isin: st.isin || "", logo: st.logo || "", qty: okNum(q) ? q : null, cost, ov: st.ov || undefined, ticker: st.ticker || undefined, ...(src ? {src} : {})};
   };
   const runSearch = debounce(async q => {
     const res = $("#h-res", dlg);
@@ -3421,12 +3533,13 @@ function holdingDialog(acc, h, done, preset) {
       if (!form.isConnected) return;
       res.innerHTML = list.length ? list.map((x, i) => `<button type="button" data-i="${i}"><span class="with-logo">${st.type === "crypto" ? logoBox(x.logo, x.name, "", true) : holdingLogo({type: "stock", symbol: x.symbol, name: x.name})}<span><b>${esc(x.name)}</b><br><small>${esc([x.ticker, x.type, x.exchange].filter(Boolean).join(" · "))}</small></span></span><small class="num">${esc(x.symbol)}</small></button>`).join("") : '<div style="padding:10px" class="muted">Keine Treffer.</div>';
       $$("button", res).forEach(b => b.onclick = () => {
-        const x = list[+b.dataset.i]; $("#h-sym", dlg).value = x.symbol; st.name = x.name; st.logo = x.logo || ""; st.src = x.src || ""; if (/^[A-Z]{2}[A-Z0-9]{9}\d$/.test(q.trim())) st.isin = q.trim();
+        const x = list[+b.dataset.i]; $("#h-sym", dlg).value = x.symbol; st.name = x.name; st.logo = x.logo || ""; st.src = x.src || ""; st.ov = x.ov || null; st.ticker = x.ticker || ""; st.isin = x.isin || (isIsin(q.trim()) ? q.trim() : "");
         res.hidden = true; $("#h-qty", dlg).focus(); check();
       });
     } catch { res.innerHTML = '<div style="padding:10px" class="neg">Suche gerade nicht erreichbar. Du kannst das Symbol auch direkt eintragen.</div>'; }
   }, 350);
   $("#h-q", dlg).oninput = e => runSearch(e.target.value.trim());
+  $("#h-sym", dlg).addEventListener("input", () => { st.ov = null; st.ticker = ""; st.isin = ""; });
   ["#h-sym", "#h-qty", "#h-mt", "#h-unit", "#h-chain", "#h-addr", "#h-cost"].forEach(s => $(s, dlg).addEventListener("change", check));
   if (!isNew) { check(); $("#h-sym", dlg).dataset.named = "1"; }
   else if (preset && (preset.symbol || preset.type === "metal")) check();
@@ -3503,7 +3616,7 @@ function importDepotDialog(done) {
       try {
         const list = await MARKET.search(r.isin, "stock");
         const x = list.length ? pickListing(list) : null;
-        if (x) { r.symbol = x.symbol; r.name = r.name || x.name; r.state = "ok"; try { const j = await MARKET.quotes([{type: "stock", symbol: x.symbol}]); const q = j.quotes["stock:" + x.symbol]; if (q) { r.price = q.priceEur; QUOTES["stock:" + x.symbol] = q; if (!r.name || r.name.length < 3) r.name = q.name; } } catch {} }
+        if (x) { r.symbol = x.symbol; r.ov = x.ov; r.name = r.name || x.name; r.state = "ok"; try { const j = await MARKET.quotes([{type: "stock", symbol: x.symbol, isin: x.isin || r.isin, ov: x.ov}]); const q = j.quotes["stock:" + x.symbol]; if (q) { r.price = q.priceEur; QUOTES["stock:" + x.symbol] = q; if (!r.name || r.name.length < 3) r.name = q.name; } } catch {} }
         else r.state = "fail";
       } catch { r.state = "fail"; }
       drawPrev();
@@ -3516,7 +3629,7 @@ function importDepotDialog(done) {
     let n = 0;
     rows.filter(r => r.symbol && r.qty > 0).forEach(r => {
       const ex = a.holdings.find(h => h.isin === r.isin || h.symbol === r.symbol);
-      if (ex) ex.qty = r.qty; else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, name: r.name || r.symbol, qty: r.qty});
+      if (ex) ex.qty = r.qty; else a.holdings.push({id: "h" + uid(), type: "stock", symbol: r.symbol, isin: r.isin, ...(r.ov ? {ov: r.ov} : {}), name: r.name || r.symbol, qty: r.qty});
       n++;
     });
     save(true); dlg.close(); toast(`${n} Position${n === 1 ? "" : "en"} übernommen`); done(); refreshQuotes(true);
