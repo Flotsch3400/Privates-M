@@ -546,6 +546,36 @@ dialog[open]::backdrop{animation:fadeIn .18s ease-out}
 .btn,.seg button,.tabbar a,.nav a{transition:background .12s,border-color .12s,box-shadow .12s,transform .08s}
 .card,.kpi{transition:border-color .15s,box-shadow .15s}
 html{scroll-behavior:smooth}
+/* smooth folding: content stays in the DOM, height animates via grid rows */
+.fold{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s cubic-bezier(.2,.8,.2,1)}
+.fold > div{overflow:hidden;min-height:0;opacity:0;visibility:hidden;transition:opacity .18s ease,visibility 0s linear .28s}
+.fold.open{grid-template-rows:1fr}
+.fold.open > div{opacity:1;visibility:visible;transition:opacity .22s ease .06s,visibility 0s}
+.plat-head,.gh{transition:background .15s,border-color .2s}
+.plat-card .plat-head{border-bottom:1px solid transparent}
+/* press feedback on everything tappable */
+.acc-main,.plat-row,.h-row[data-h],.pos-row[data-o],.q-item,.plat-cat,.plat-chip,.kpi-link,.vrow,.debt-item{transition:background .12s,transform .12s}
+.acc-main:active,.plat-head:active,.gh[role="button"]:active,.plat-row:active,.h-row[data-h]:active,.pos-row[data-o]:active,.q-item:active,.debt-item:active{background:var(--surface-2)}
+.plat-cat:active,.plat-chip:active,.kpi-link:active{transform:scale(.98)}
+.switch span,.switch span::after{transition:background .2s,transform .22s cubic-bezier(.3,1.4,.5,1)}
+/* closing animation */
+dialog.closing{animation:dlgOut .17s ease-in forwards}
+dialog.closing::backdrop{animation:fadeOut .17s ease-in forwards}
+@keyframes dlgOut{to{opacity:0;transform:translateY(8px) scale(.985)}}
+@keyframes fadeOut{to{opacity:0}}
+@media (max-width:760px){
+  dialog[open]{animation:sheetIn .32s cubic-bezier(.2,.9,.25,1)}
+  dialog.closing{animation:sheetOut .2s cubic-bezier(.4,0,1,1) forwards}
+}
+@keyframes sheetIn{from{transform:translateY(100%)}to{transform:none}}
+@keyframes sheetOut{to{transform:translateY(100%)}}
+dialog{overscroll-behavior:contain}
+dialog:focus{outline:none}
+.sec-tog{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:8px;min-width:0;cursor:pointer;padding:4px 6px;margin:-4px -6px;border-radius:8px}
+.sec-tog:active{background:var(--surface-2)}
+.sec-tog .chev{width:15px;height:15px;color:var(--ink-3);transition:transform .2s;flex:none}
+.sec-tog[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.sec-tog:focus-visible{outline:2px solid var(--brand)}
 @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
 </style>
 </head>
@@ -566,7 +596,7 @@ html{scroll-behavior:smooth}
   <main><div class="mobile-top"><a class="brand" href="#uebersicht" style="padding:0"><svg class="logo-lockup" viewBox="0 0 239 64" height="26" role="img" aria-label="Tracky"><rect width="64" height="64" rx="15" fill="#0B0F1A"/><rect x=".75" y=".75" width="62.5" height="62.5" rx="14.25" fill="none" stroke="var(--line-2)" stroke-width="1.5" opacity=".6"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path transform="translate(82 50.25)" d="M1.1025181208053692 -30.03749369127517H12.17670013422819V0.0H19.722824161073827V-30.03749369127517H30.772505771812085V-36.5056H1.1025181208053692Z M33.16864515436242 0.0H40.39626394630873V-14.01423033557047C40.39626394630873 -17.909794362416108 42.576799785234904 -19.967828187919466 45.54134851006712 -19.967828187919466C46.766368644295305 -19.967828187919466 48.11389079194632 -19.86982657718121 48.65289965100672 -19.845326174496645V-25.99492724832215C48.064889986577185 -26.019427651006716 47.35437830872483 -26.04392805369128 46.52136461744967 -26.04392805369128C43.115808644295306 -26.04392805369128 41.155776429530206 -24.57390389261745 40.20026072483222 -21.462352751677855H40.12675951677853V-25.87242523489933H33.16864515436242Z M58.546162255033565 0.4410072483221477C62.5152274899329 0.4410072483221477 64.74476413422819 -1.127018523489933 66.11678668456376 -3.6505600000000005H66.21478829530201V0.0H73.27090426845638V-17.54228832214765C73.27090426845638 -23.079379328859062 69.2038374228188 -26.411434093959734 62.12322104697987 -26.411434093959734C55.01810426845638 -26.411434093959734 50.804035006711416 -23.030378523489937 50.48552977181209 -17.689290738255036H57.27214131543625C57.443644134228194 -19.673823355704698 59.207673127516784 -21.04584590604027 61.902717422818796 -21.04584590604027C64.54876091275169 -21.04584590604027 66.14128708724833 -19.722824161073827 66.14128708724833 -17.811792751677853V-17.640289932885906C66.14128708724833 -15.974262550335572 64.47525970469799 -15.753758926174498 59.74668198657719 -15.288251275167786C54.356593395973164 -14.798243221476511 49.65251608053692 -13.132215838926175 49.65251608053692 -7.301120000000001C49.65251608053692 -2.1315350335570473 53.37657728859061 0.4410072483221477 58.546162255033565 0.4410072483221477ZM60.55519527516779 -4.581575302013423C58.12965540939598 -4.581575302013423 56.5616296375839 -5.659593020134229 56.5616296375839 -7.497123221476511C56.5616296375839 -9.555157046979867 58.521661852349 -10.510672751677854 60.99620252348994 -10.87817879194631C63.3237407785235 -11.245684832214765 65.35727420134229 -11.588690469798658 66.19028789261746 -12.05419812080537V-9.457155436241612C66.19028789261746 -6.664109530201343 64.03425245637584 -4.581575302013423 60.55519527516779 -4.581575302013423Z M88.97076230872484 0.5880096644295303C95.85537546308726 0.5880096644295303 100.80445680536914 -3.7485616107382556 101.12296204026848 -9.726659865771813H94.09134646979867C93.62583881879196 -7.007115167785235 91.98431183892619 -5.243086174496645 89.0687639194631 -5.243086174496645C85.44270432214766 -5.243086174496645 83.26216848322149 -8.207634899328859 83.26216848322149 -12.911712214765101C83.26216848322149 -17.640289932885906 85.4182039194631 -20.629339060402685 89.0687639194631 -20.629339060402685C91.95981143624162 -20.629339060402685 93.77284123489935 -18.840809664429532 94.1403472751678 -16.194766174496646H101.12296204026848C100.65745438926176 -22.22186523489933 95.78187425503357 -26.460434899328863 88.97076230872484 -26.460434899328863C81.20413465771813 -26.460434899328863 75.98554888590606 -20.923343892617453 75.98554888590606 -12.911712214765101C75.98554888590606 -4.9000805369127525 81.17963425503356 0.5880096644295303 88.97076230872484 0.5880096644295303Z M103.71510464429531 0.0H110.94272343624162V-8.207634899328859L113.02525766442955 -10.510672751677854L120.64488289932888 0.0H129.09752182550338L118.43984665771814 -14.65124080536913L128.55851296644298 -25.87242523489933H120.08137363758391L111.0162246442953 -15.974262550335572H110.94272343624162V-36.5056H103.71510464429531Z M130.70964832214767 10.241168322147653H135.4872268456376C139.50529288590604 10.241168322147653 142.00433395973155 8.305636510067115 143.64586093959733 3.993565637583893L155.03854818791947 -25.87242523489933H147.54142496644297L143.18035328859062 -13.083215033557048C142.56784322147652 -11.245684832214765 142.00433395973155 -9.359153825503357 141.44082469798659 -7.497123221476511C140.90181583892618 -9.359153825503357 140.31380617449665 -11.221184429530203 139.72579651006714 -13.083215033557048L135.38922523489936 -25.87242523489933H127.81860080536914L137.76576429530203 -0.09800161073825504L137.05525261744967 1.7885293959731545C136.3692413422819 3.773062013422819 135.70773046979866 4.532574496644296 133.99270228187922 4.532574496644296H130.70964832214767Z" fill="currentColor"/></svg></a><div class="actions" style="gap:6px;flex-wrap:nowrap"><button class="btn icon sm" type="button" data-search aria-label="Suchen"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button><button class="btn icon sm" type="button" data-priv></button><div class="seg theme-seg" role="group" aria-label="Darstellung"></div></div></div><div class="pi-bar" id="pi-bar" hidden></div><div class="wrap" id="view"></div></main>
   <nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
 </div>
-<dialog id="dlg"></dialog>
+<dialog id="dlg" tabindex="-1"></dialog>
 <div id="lock" class="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lock-t">
   <div class="lock-box">
     <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#121826"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -1618,6 +1648,10 @@ function openSearch() {
   dlg.addEventListener("close", () => dlg.classList.remove("palette"), {once: true});
   draw(); inp.focus();
 }
+document.addEventListener("focusin", e => {
+  const t = e.target;
+  if (t.matches?.('input.n, input[inputmode="decimal"], input[inputmode="numeric"]') && t.value) setTimeout(() => { try { if (document.activeElement === t) t.select(); } catch {} }, 0);
+});
 document.addEventListener("keydown", e => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) { e.preventDefault(); openSearch(); }
@@ -1965,13 +1999,13 @@ VIEWS.bewertung = v => {
       return `<div class="card val-group" data-cat="${c.key}">
         <div class="gh" role="button" tabindex="0" aria-expanded="${o}"><span class="l">${I.chev}${catChip(c.key)}${esc(c.label)} <span class="muted" style="font-weight:400">${list.length}</span></span>
           <span class="r"><span class="num" data-cat-delta style="font-size:13px"></span><b class="num" data-cat-sum></b></span></div>
-        <div class="gb" ${o ? "" : "hidden"}>
+        <div class="fold ${o ? "open" : ""}"><div class="gb">
           <div class="vrow vrow-h"><span>Konto</span><span style="text-align:right">${base ? fmtDate(base.date) : "Vorher"}</span><span style="text-align:right">Neuer Wert</span><span style="text-align:right">Veränderung</span></div>
           ${list.map(vrow).join("")}
-        </div></div>`;
+        </div></div></div>`;
     }).join("");
     $$(".gh", groups).forEach(h => {
-      const t = () => { const k = h.parentElement.dataset.cat; open.has(k) ? open.delete(k) : open.add(k); store.set("val-open", [...open]); h.setAttribute("aria-expanded", open.has(k)); h.nextElementSibling.hidden = !open.has(k); };
+      const t = () => { const k = h.parentElement.dataset.cat; open.has(k) ? open.delete(k) : open.add(k); store.set("val-open", [...open]); h.setAttribute("aria-expanded", open.has(k)); h.nextElementSibling.classList.toggle("open", open.has(k)); };
       h.onclick = t; h.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); t(); } };
     });
     $$("input[data-acc]", groups).forEach(inp => {
@@ -3009,8 +3043,8 @@ VIEWS.konten = v => {
       <span class="mode ${auto ? "auto" : "man"} hide-sm">${auto ? I.refresh + " Automatisch" : I.pencil + " Händisch"}</span>
       <label class="switch" title="${auto ? "Automatisch – zum händischen Pflegen ausschalten" : "Händisch – zum automatischen Bewerten einschalten"}"><input type="checkbox" role="switch" data-auto="${a.id}" ${auto ? "checked" : ""} aria-label="${esc(a.name)} ${esc(catLabel(a.cat))} automatisch bewerten"><span></span></label>
       <span class="num val">${eur(accNow(a))}</span></div>
-      ${open ? `<div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
-        <button class="btn ghost sm" type="button" data-page="${a.id}" style="margin:4px 0 0 -8px">${I.plus} Position hinzufügen</button></div>` : ""}`;
+      ${has ? `<div class="fold ${open ? "open" : ""}" data-fold="${k}"><div><div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
+        <button class="btn ghost sm" type="button" data-page="${a.id}" style="margin:4px 0 0 -8px">${I.plus} Position hinzufügen</button></div></div></div>` : ""}`;
   };
   const render = () => {
     $$("#k-filter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === filter));
@@ -3022,9 +3056,9 @@ VIEWS.konten = v => {
       keys = ps.map(({p}) => "p:" + p.key);
       $("#k-list").innerHTML = ps.map(({p, sum}) => {
         const k = "p:" + p.key, open = isOpen(k), nAuto = p.accs.filter(isLive).length, nPos = p.accs.reduce((t, a) => t + a.holdings.length, 0);
-        return `<div class="card plat-card ${open ? "open" : ""}">
+        return `<div class="card plat-card ${open ? "open" : ""}" data-card="${k}">
           <button class="plat-head" type="button" data-tog="${k}" aria-expanded="${open}">${I.chev}${platLogo(p, "lg")}<span class="t"><b>${esc(p.name)}</b><small>${[...new Set(p.accs.map(a => catLabel(a.cat)))].join(" · ")}${nPos ? ` · ${nPos} Positionen` : ""} · ${nAuto === p.accs.length ? "automatisch" : nAuto ? `${nAuto} von ${p.accs.length} automatisch` : "händisch"}</small></span><span class="num sum">${eur(sum)}</span></button>
-          ${open ? p.accs.slice().sort(byVal).map(a => row(a, true, p.name)).join("") + `<div class="plat-foot"><button class="btn sm" type="button" data-plat="${p.key}">${I.plus} Asset hinzufügen</button><button class="btn ghost sm" type="button" data-imp="${p.key}">${I.paste} Depot einfügen</button></div>` : ""}</div>`;
+          <div class="fold ${open ? "open" : ""}" data-fold="${k}"><div>${p.accs.slice().sort(byVal).map(a => row(a, true, p.name)).join("") + `<div class="plat-foot"><button class="btn sm" type="button" data-plat="${p.key}">${I.plus} Asset hinzufügen</button><button class="btn ghost sm" type="button" data-imp="${p.key}">${I.paste} Depot einfügen</button></div>`}</div></div></div>`;
       }).join("") || '<div class="card empty">Noch keine Konten.</div>';
     } else {
       const cs = DB.categories.map(c => ({c, list: DB.accounts.filter(a => a.cat === c.key && (filter === "all" || !a.archived))})).filter(x => x.list.length)
@@ -3032,19 +3066,20 @@ VIEWS.konten = v => {
       keys = cs.map(({c}) => "c:" + c.key);
       $("#k-list").innerHTML = cs.map(({c, list, sum}) => {
         const k = "c:" + c.key, open = isOpen(k), nAuto = list.filter(isLive).length;
-        return `<div class="card plat-card ${open ? "open" : ""}">
+        return `<div class="card plat-card ${open ? "open" : ""}" data-card="${k}">
           <button class="plat-head" type="button" data-tog="${k}" aria-expanded="${open}">${I.chev}${catChip(c.key)}<span class="t"><b>${esc(c.label)}</b><small>${list.length} Konto${list.length === 1 ? "" : "en"} · ${nAuto === list.length ? "automatisch" : nAuto ? `${nAuto} von ${list.length} automatisch` : "händisch"}</small></span><span class="num sum">${eur(sum)}</span></button>
-          ${open ? list.slice().sort(byVal).map(a => row(a, false)).join("") : ""}</div>`;
+          <div class="fold ${open ? "open" : ""}" data-fold="${k}"><div>${list.slice().sort(byVal).map(a => row(a, false)).join("")}</div></div></div>`;
       }).join("") || '<div class="card empty">Noch keine Konten.</div>';
     }
-    const allOpen = keys.length && keys.every(isOpen);
-    $("#k-all").textContent = allOpen ? "Alle zuklappen" : "Alle aufklappen";
-    $("#k-all").onclick = () => { keys.forEach(k => st[k] = !allOpen); store.set("k-open", st); render(); };
-    $$("#k-list [data-tog]").forEach(b => b.onclick = () => { st[b.dataset.tog] = !isOpen(b.dataset.tog); store.set("k-open", st); render(); });
+    const setOpen = (k, o) => { st[k] = o; $$(`#k-list [data-fold="${k}"]`).forEach(f => f.classList.toggle("open", o)); $$(`#k-list [data-tog="${k}"]`).forEach(b => b.setAttribute("aria-expanded", o)); $(`#k-list [data-card="${k}"]`)?.classList.toggle("open", o); };
+    const paintAll = () => { $("#k-all").textContent = keys.length && keys.every(isOpen) ? "Alle zuklappen" : "Alle aufklappen"; };
+    paintAll();
+    $("#k-all").onclick = () => { const o = !(keys.length && keys.every(isOpen)); keys.forEach(k => setOpen(k, o)); store.set("k-open", st); paintAll(); };
+    $$("#k-list [data-tog]").forEach(b => b.onclick = () => { setOpen(b.dataset.tog, !isOpen(b.dataset.tog)); store.set("k-open", st); paintAll(); });
     $$("#k-list [data-page]").forEach(b => b.onclick = () => { const a = accById(b.dataset.page); platformDialog(platKey(a), render, a.id); });
     $$("#k-list [data-plat]").forEach(b => b.onclick = () => platformDialog(b.dataset.plat, render));
     $$("#k-list [data-imp]").forEach(b => b.onclick = () => { const p = platByKey(b.dataset.imp); importDepotDialog(render, (p.accs.find(a => a.cat === "wertpapiere" && !a.archived) || p.accs.find(a => a.cat === "edelmetalle"))?.id); });
-    $$("#k-list [data-auto]").forEach(inp => inp.onchange = () => setAuto(accById(inp.dataset.auto), inp.checked, render));
+    $$("#k-list [data-auto]").forEach(inp => inp.onchange = () => setAuto(accById(inp.dataset.auto), inp.checked, () => setTimeout(render, reduced() ? 0 : 220)));
     $$("#k-list .plat-row[data-h]").forEach(r => { const f = () => { const a = accById(r.dataset.a); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.h), render); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
   };
   $$("#k-filter button").forEach(b => b.onclick = () => { filter = b.dataset.v; store.set("k-filter", filter); render(); });
@@ -3477,9 +3512,20 @@ function download(name, text, type) {
 
 /* ================= Dialogs ================= */
 const dlg = $("#dlg");
+/* Closing plays a short animation; opening something new meanwhile simply takes over the open dialog. */
+const dlgCloseNow = HTMLDialogElement.prototype.close;
+let dlgCloseT = null;
+dlg.close = function (...a) {
+  if (!dlg.open || dlgCloseT) return;
+  if (reduced()) return dlgCloseNow.apply(dlg, a);
+  dlg.classList.add("closing");
+  dlgCloseT = setTimeout(() => { dlgCloseT = null; dlg.classList.remove("closing"); dlg.style.transform = ""; dlgCloseNow.apply(dlg, a); }, 190);
+};
+dlg.addEventListener("cancel", e => { e.preventDefault(); dlg.close(); });
 function openDlg(html, wide) {
+  if (dlgCloseT) { clearTimeout(dlgCloseT); dlgCloseT = null; }
   dlg.className = wide ? "wide" : ""; dlg.innerHTML = html; dlg.style.transform = "";
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) { dlg.showModal(); if (document.activeElement?.matches?.("[data-x]")) dlg.focus({preventScroll: true}); }
   $$("[data-x]", dlg).forEach(b => b.onclick = () => dlg.close());
   const head = $(".dlg-h", dlg);
   if (head && window.matchMedia("(max-width: 760px)").matches) {
@@ -3546,22 +3592,30 @@ function platformDialog(key, done = () => go(true), focusId) {
   const unit = h => h.type === "metal" ? " oz" : h.type === "stock" ? " Stk." : "";
   const sub = h => h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : `${qtyTxt(hVal(h).qty)}${unit(h)}`;
   const title = accs.length === 1 && accs[0].name !== p.name ? accs[0].name : p.name;
+  const secSt = store.get("sec-open", {});
+  const secOpen = a => !!a.holdings.length && (secSt[a.id] ?? (a.id === focusId || a.holdings.length <= 6));
   openDlg(`<div class="dlg-h"><h2 class="inl" style="gap:10px;min-width:0">${platLogo(p)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(title)}</span></h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b" style="display:grid;gap:14px">
       <div class="split"><span class="muted">${accs.length} Bereich${accs.length === 1 ? "" : "e"} · ${accs.reduce((t, a) => t + a.holdings.length, 0)} Assets</span><b class="num" style="font-size:20px">${eur(tot)}</b></div>
-      <div><span class="lbl">Asset hinzufügen</span>
-        <div class="plat-cats">${DB.categories.map(c => `<button class="plat-cat" type="button" data-pcat="${esc(c.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div>
-        <p class="hint" style="margin:6px 0 0">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jedes Asset landet im passenden Bereich, fehlende Bereiche legt Tracky an.</p></div>
+      <div><button class="btn sm" type="button" id="pl-addtog" aria-expanded="${!(accs.reduce((t, a) => t + a.holdings.length, 0))}" style="width:100%">${I.plus} Asset hinzufügen</button>
+        <div class="fold ${accs.reduce((t, a) => t + a.holdings.length, 0) ? "" : "open"}" id="pl-addfold"><div><div class="plat-cats" style="margin-top:10px">${DB.categories.map(c => `<button class="plat-cat" type="button" data-pcat="${esc(c.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div>
+        <p class="hint" style="margin:6px 0 2px">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jedes Asset landet im passenden Bereich, fehlende Bereiche legt Tracky an.</p></div></div></div>
       ${accs.map(a => `<div class="plat-sec" data-sec="${a.id}">
-        <div class="plat-h"><span class="inl" style="gap:8px;min-width:0">${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}</span>
+        <div class="plat-h"><button class="sec-tog" type="button" data-stog="${a.id}" aria-expanded="${secOpen(a)}" ${a.holdings.length ? "" : 'tabindex="-1" style="cursor:default"'}>${a.holdings.length ? I.chev : ""}${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}${a.holdings.length ? `<span class="muted" style="font-weight:500;font-size:12.5px;white-space:nowrap">${a.holdings.length}</span>` : ""}</button>
           <span class="inl" style="gap:4px"><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button></span></div>
-        ${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}
+        <div class="fold ${secOpen(a) ? "open" : ""}" data-sfold="${a.id}"><div>${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}</div></div>
         ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen unter Konten mit dem Schalter.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
         <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
       </div>`).join("")}
     </div>
     <div class="dlg-f"><button class="btn" type="button" id="pl-imp">${I.paste} Depot einfügen</button><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
   $("#pl-imp", dlg).onclick = () => importDepotDialog(() => { done(); setTimeout(back, 30); }, (accs.find(a => a.id === focusId && ["wertpapiere", "edelmetalle"].includes(a.cat)) || accs.find(a => a.cat === "wertpapiere"))?.id);
+  $("#pl-addtog", dlg).onclick = e => { const f = $("#pl-addfold", dlg), o = !f.classList.contains("open"); f.classList.toggle("open", o); e.currentTarget.setAttribute("aria-expanded", o); };
+  $$("[data-stog]", dlg).forEach(b => b.onclick = () => {
+    const id = b.dataset.stog, a = accById(id); if (!a?.holdings.length) return;
+    const o = !secOpen(a); secSt[id] = o; store.set("sec-open", secSt);
+    b.setAttribute("aria-expanded", o); $(`[data-sfold="${id}"]`, dlg).classList.toggle("open", o);
+  });
   $$("[data-pcat]", dlg).forEach(b => b.onclick = () => {
     const cat = b.dataset.pcat, type = AUTO_TYPE[cat];
     if (type) holdingDialog(null, null, done, {type, platform: key, back});
@@ -3910,7 +3964,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v21";
+const APP_VERSION = "tracky-v23";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));

@@ -43,6 +43,7 @@ test("Plattform: Krypto und Gold landen automatisch im passenden Bereich", async
   expect(r).toEqual(["edelmetalle:metal/XAU/2", "krypto:crypto/bitcoin/0.5", "liquiditaet:", "wertpapiere:"]);
 
   // a stock goes to the existing "Aktien & ETFs" area, no new account
+  if (!(await page.locator('.plat-cats [data-pcat="wertpapiere"]').isVisible())) await page.click("#pl-addtog");
   await page.click('.plat-cats [data-pcat="wertpapiere"]');
   await expect(page.locator("#h-acc")).toHaveValue("tb-akt");
   await page.keyboard.press("Escape");
@@ -84,6 +85,7 @@ test("Konto anklicken → Assets nach Kategorie erfassen (Betrag, Schuld)", asyn
   await page.click("#cf button[type=submit]");
   await expect(page.locator('[data-sec="tb-cash"]')).toContainText("1.350,00");
   // a debt in a new area "Kreditkarten & Kredite"
+  if (!(await page.locator('.plat-cats [data-pcat="kredite"]').isVisible())) await page.click("#pl-addtog");
   await page.locator('.plat-cats [data-pcat="kredite"]').click();
   await page.fill("#c-n", "Kreditkarte");
   await page.fill("#c-a", "200");
@@ -92,7 +94,7 @@ test("Konto anklicken → Assets nach Kategorie erfassen (Betrag, Schuld)", asyn
   const r = await page.evaluate(() => DB.accounts.filter(a => a.provider === "Testbroker").map(a => [a.cat, accLive(a)?.value ?? null]).sort());
   expect(r).toEqual([["kredite", -200], ["liquiditaet", 1350], ["wertpapiere", null]]);
   // edit an amount
-  await page.locator(".plat-row", {hasText: "USD-Guthaben"}).click();
+  await page.locator("dialog .plat-row", {hasText: "USD-Guthaben"}).click();
   await page.fill("#c-a", "100");
   await page.click("#cf button[type=submit]");
   await expect(page.locator('[data-sec="tb-cash"]')).toContainText("1.350,50");
