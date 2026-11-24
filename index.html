@@ -1583,7 +1583,7 @@ function searchItems() {
   DB.accounts.forEach(a => add("Konten", a.name, `${catLabel(a.cat)}${a.archived ? " · archiviert" : ""}${L?.values[a.id] != null ? " · " + eur0(L.values[a.id]) : ""}`, accLogo(a, "sm"), after(() => platformDialog(platKey(a), () => go(true), a.id)), a.provider || "", !!a.archived));
   DB.accounts.forEach(a => a.holdings.forEach(h => add("Positionen", h.name || h.symbol, `${a.name}${h.symbol ? " · " + (isAddr(h.symbol) ? h.symbol.slice(0, 8) + "…" : h.symbol) : ""}`, holdingLogo(h, "sm"), after(() => holdingDialog(a, h, () => go())), (h.isin || "") + " " + (h.symbol || ""))));
   // Lieferando
-  knownRestaurants().forEach(r => add("Restaurants", r.name, `Neue Bestellung · ${r.n}× bestellt`, lfIcon(), after(() => { orderDialog(null, () => go()); const i = $("#o-r", dlg); if (i) { i.value = r.name; $("#o-e", dlg)?.focus(); } })));
+  knownRestaurants().forEach(r => add("Restaurants", r.name, `Neue Bestellung · ${r.n}× bestellt`, restLogo(r.name), after(() => { orderDialog(null, () => go()); const i = $("#o-r", dlg); if (i) { i.value = r.name; $("#o-e", dlg)?.focus(); } })));
   const debts = Object.fromEntries(openDebts().map(d => [d.code, d.sum]));
   [...new Set(DB.income.orders.flatMap(o => (o.participants || []).map(z => z.code)))].forEach(c => add("Kollegen", c, debts[c] ? `offen ${eur(debts[c])}` : "alles bezahlt", `<span class="code">${esc(c)}</span>`, nav("lieferando"), "kollege mitbesteller"));
   // income sources
@@ -2587,7 +2587,7 @@ function orderDialog(o, done) {
       <div class="row2" id="o-svedit" hidden><div class="field"><label for="o-sr">Servicegebühr in %</label><input class="input n" id="o-sr" inputmode="decimal" value="${pctTxt(svRate)}"></div>
         <div class="field"><label for="o-sc">Höchstens pro Bestellung (€)</label><input class="input n" id="o-sc" inputmode="decimal" value="${fmtN.format(svCap)}"></div></div>
       ${oldFee ? `<div class="msg info">Diese Bestellung hat noch eine Liefergebühr von ${eur(oldFee)} aus der früheren Erfassung. Sie bleibt erhalten.</div>` : ""}
-      ${isNew && templates.length ? `<div class="field"><span class="lbl">Wie letztes Mal</span><div class="actions">${templates.map((t_, i) => `<button class="btn sm" type="button" data-tpl="${i}">${esc(t_.restaurant || "Lieferando")} <span class="muted">· ${t_.participants.map(z => z.code).join(" ") || "allein"}</span></button>`).join("")}</div></div>` : ""}
+      ${isNew && templates.length ? `<div class="field"><span class="lbl">Wie letztes Mal</span><div class="actions">${templates.map((t_, i) => `<button class="btn sm" type="button" data-tpl="${i}">${t_.restaurant ? restLogo(t_.restaurant) : ""}${esc(t_.restaurant || "Lieferando")} <span class="muted">· ${t_.participants.map(z => z.code).join(" ") || "allein"}</span></button>`).join("")}</div></div>` : ""}
       <div class="field"><span class="lbl">Mitbesteller</span>
         <div id="o-rows" style="display:grid;gap:6px"></div>
         <div class="actions" style="margin-top:4px"><button class="btn sm" type="button" id="o-add">${I.plus} Person</button>${known.map(c => `<button type="button" class="code" data-code="${esc(c)}" style="cursor:pointer">${esc(c)}</button>`).join("")}</div>
@@ -2665,6 +2665,44 @@ function orderDialog(o, done) {
   };
   $(isNew ? "#o-r" : "#o-e", dlg).focus();
 }
+/** Restaurant logos: own picture or website from the settings, else well-known chains, else initials. */
+const REST_CHAINS = [["burger king", "burgerking.at"], ["kfc", "kfc.de"], ["fatmonk", "fatmonk.at"], ["fat monk", "fatmonk.at"], ["mcdonald", "mcdonalds.at"], ["subway", "subway.com"],
+  ["vapiano", "vapiano.com"], ["nordsee", "nordsee.com"], ["pizza hut", "pizzahut.com"], ["domino", "dominos.com"], ["five guys", "fiveguys.com"], ["wagamama", "wagamama.com"], ["dean&david", "deananddavid.com"], ["dean & david", "deananddavid.com"]];
+const restKey = n => norm(n).trim();
+function restLogo(name, size = "sm") {
+  const k = restKey(name), set = DB.income.settings.restLogos?.[k];
+  if (set?.img) return logoBox(set.img, name, size);
+  const d = set?.domain || REST_CHAINS.find(([c]) => k.includes(c))?.[1];
+  return logoBox(d ? favicon(d) : "", name || "?", size);
+}
+/** Square-crops a picture (centre) to 128 px – small enough to sync. */
+const squareImage = file => new Promise((res, rej) => {
+  const img = new Image(), url = URL.createObjectURL(file);
+  img.onload = () => { const c = document.createElement("canvas"), S = 128, m = Math.min(img.width, img.height); c.width = c.height = S;
+    const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, S, S); g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, S, S); URL.revokeObjectURL(url); res(c.toDataURL("image/jpeg", .85)); };
+  img.onerror = () => { URL.revokeObjectURL(url); rej(new Error("Bild nicht lesbar")); };
+  img.src = url;
+});
+function restDialog(done = () => go(true)) {
+  const list = knownRestaurants(), set = DB.income.settings.restLogos ||= {};
+  openDlg(`<div class="dlg-h"><h2>Restaurants & Logos</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b" style="display:grid;gap:10px"><p class="sub" style="margin:0">Bekannte Ketten (Burger King, KFC, FatMonk, McDonald's …) haben ihr Logo automatisch. Für alle anderen: <b>Bild</b> wählen – am besten vorher in Fotos aufs Logo zuschneiden, z. B. aus einem Screenshot der Lieferando-App – oder die <b>Webseite</b> des Restaurants eintragen.</p>
+      <div>${list.length ? list.map(r => { const k = restKey(r.name), own = set[k]; return `<div class="plat-row" style="cursor:default" data-rk="${esc(k)}"><span class="nm with-logo">${restLogo(r.name, "lg")}<span><b>${esc(r.name)}</b><small>${r.n}× bestellt${own?.img ? " · eigenes Bild" : own?.domain ? " · " + esc(own.domain) : ""}</small></span></span>
+        <span class="actions" style="flex:none;gap:6px"><button class="btn sm" type="button" data-rimg="${esc(k)}">Bild</button><button class="btn sm" type="button" data-rweb="${esc(k)}">Webseite</button>${own ? `<button class="btn ghost sm icon" type="button" data-rdel="${esc(k)}" aria-label="Logo von ${esc(r.name)} entfernen">${I.x}</button>` : ""}</span></div>`; }).join("") : '<p class="hint">Noch keine Bestellungen.</p>'}</div>
+      <input type="file" id="r-file" accept="image/*" hidden></div>
+    <div class="dlg-f"><span></span><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
+  const redraw = () => { save(true); done(); restDialog(done); };
+  let target = null;
+  $$("[data-rimg]", dlg).forEach(b => b.onclick = () => { target = b.dataset.rimg; $("#r-file", dlg).value = ""; $("#r-file", dlg).click(); });
+  $("#r-file", dlg).onchange = async e => { const f = e.target.files[0]; if (!f || !target) return; try { set[target] = {img: await squareImage(f)}; toast("Logo gespeichert"); redraw(); } catch (err) { toast(err.message); } };
+  $$("[data-rweb]", dlg).forEach(b => b.onclick = () => {
+    const k = b.dataset.rweb, row = b.closest("[data-rk]");
+    row.insertAdjacentHTML("afterend", `<form class="r-web" style="display:flex;gap:8px;padding:6px 0 10px"><input class="input" placeholder="z. B. restaurant-name.at" value="${esc(set[k]?.domain || "")}" autocapitalize="off" spellcheck="false" style="flex:1" aria-label="Webseite"><button class="btn sm primary" type="submit">OK</button></form>`);
+    const f = row.nextElementSibling, inp = $("input", f); inp.focus();
+    f.onsubmit = e => { e.preventDefault(); const d = cleanDomain(inp.value); if (d) set[k] = {domain: d}; else delete set[k]; redraw(); };
+  });
+  $$("[data-rdel]", dlg).forEach(b => b.onclick = () => { delete set[b.dataset.rdel]; redraw(); });
+}
 /** Restaurants you ordered from before: most frequent first, with count and last date. */
 function knownRestaurants() {
   const m = {};
@@ -2701,7 +2739,7 @@ function comboBox(inp, list, items, onPick, noun = "Eintrag", openOnFocus = true
     else if (e.key === "Escape" && !list.hidden) { e.preventDefault(); e.stopPropagation(); close(); }
   });
 }
-const restaurantCombo = (inp, list, onPick) => comboBox(inp, list, () => knownRestaurants().map(r => ({name: r.name, sub: `${r.n}× · zuletzt ${fmtDate(r.last)}`})), onPick, "neues Restaurant");
+const restaurantCombo = (inp, list, onPick) => comboBox(inp, list, () => knownRestaurants().map(r => ({name: r.name, sub: `${r.n}× · zuletzt ${fmtDate(r.last)}`, logo: restLogo(r.name)})), onPick, "neues Restaurant");
 /** Saved and previously used sources for one income type, most used first. */
 function knownSources(type) {
   const m = {};
@@ -2762,7 +2800,7 @@ VIEWS.lieferando = v => {
     <section class="kpis" id="lf-kpis"></section>
     <section class="grid-2e">
       <div class="card"><div class="card-h"><h2>Offene Zahlungen</h2><span class="muted" style="font-size:12.5px" id="lf-open-sum"></span></div><div class="card-b" id="lf-open"></div></div>
-      <div class="card"><div class="card-h"><h2>Letzte Bestellungen</h2></div><div class="card-b" id="lf-orders" style="padding-top:8px"></div></div>
+      <div class="card"><div class="card-h"><h2>Letzte Bestellungen</h2><button class="btn ghost sm" type="button" id="lf-rest">Restaurants & Logos</button></div><div class="card-b" id="lf-orders" style="padding-top:8px"></div></div>
     </section>
     <section class="card"><div class="card-h"><h2>Statistik</h2><div class="actions"><div class="seg" id="lf-period"><button type="button" data-v="month">Dieser Monat</button><button type="button" data-v="year">Dieses Jahr</button><button type="button" data-v="all">Gesamt</button></div></div></div>
       <div class="card-b" id="lf-stats"></div></section>`;
@@ -2787,9 +2825,10 @@ VIEWS.lieferando = v => {
     $$("[data-allpaid]").forEach(b => b.onclick = () => { debts.find(d => d.code === b.dataset.allpaid).items.forEach(x => markPaid(x.o, x.i, true)); save(); toast(`${b.dataset.allpaid} als bezahlt markiert`); render(); });
     // recent orders
     const recent = orders.slice().sort((a, b) => b.date.localeCompare(a.date)).slice(0, 8);
-    $("#lf-orders").innerHTML = recent.length ? recent.map(o => { const c = orderCalc(o); return `<div class="pos-row" data-o="${o.id}" style="cursor:pointer"><span class="nm">${esc(o.restaurant || "Lieferando")}</span><span class="r num">${eur(c.B)}</span>
+    $("#lf-orders").innerHTML = recent.length ? recent.map(o => { const c = orderCalc(o); return `<div class="pos-row" data-o="${o.id}" style="cursor:pointer"><span class="nm with-logo">${o.restaurant ? restLogo(o.restaurant) : lfIcon()}<span>${esc(o.restaurant || "Lieferando")}</span></span><span class="r num">${eur(c.B)}</span>
         <span class="sub2"><span class="codes" style="display:inline-flex">${(o.participants || []).map(z => `<span class="code ${z.paid ? "paid" : ""}">${esc(z.code)}</span>`).join("")}</span></span><span class="sub2 r">${fmtDate(o.date)} · <button class="btn ghost sm" type="button" data-texts="${o.id}" style="height:22px;padding:0 6px">Texte</button></span></div>`; }).join("")
       : `<div class="empty" style="padding:20px 0">Noch keine Bestellungen.</div>`;
+    $("#lf-rest").onclick = () => restDialog(render);
     $$("#lf-orders [data-o]").forEach(r => r.onclick = e => { if (e.target.closest("[data-texts]")) return; orderDialog(orders.find(o => o.id === r.dataset.o), render); });
     $$("[data-texts]").forEach(b => b.onclick = () => messagesDialog(orders.find(o => o.id === b.dataset.texts), render));
     // stats
@@ -2802,13 +2841,13 @@ VIEWS.lieferando = v => {
     $("#lf-stats").innerHTML = `<div class="stat-grid">
         <div class="stat"><span>Bestellungen</span><b class="num">${st.count}</b><span>Ø ${st.persons.toLocaleString(LOCALE, {maximumFractionDigits: 1})} Personen</span></div>
         <div class="stat"><span>Gesamt bestellt</span><b class="num">${eur0(st.sum)}</b><span>Ø ${eur(st.avg)} pro Bestellung</span></div>
-        <div class="stat"><span>Lieblingsrestaurant</span><b>${esc(st.restaurants[0].name)}</b><span>${st.restaurants[0].n}× bestellt</span></div>
+        <div class="stat"><span>Lieblingsrestaurant</span><b class="with-logo" style="gap:8px">${restLogo(st.restaurants[0].name)}<span>${esc(st.restaurants[0].name)}</span></b><span>${st.restaurants[0].n}× bestellt</span></div>
         <div class="stat"><span>Höchste Bestellung</span><b class="num">${eur(st.max.c.B)}</b><span>${esc(st.max.o.restaurant || "")} · ${fmtDate(st.max.o.date)}</span></div>
         <div class="stat"><span>Niedrigste Bestellung</span><b class="num">${eur(st.min.c.B)}</b><span>${esc(st.min.o.restaurant || "")} · ${fmtDate(st.min.o.date)}</span></div>
         <div class="stat"><span>Lieblingstag</span><b>${WEEKDAYS[st.topDay]}</b><span>${st.weekdays[st.topDay]}× bestellt</span></div>
       </div>
       <div class="grid-2e" style="margin-top:18px;gap:24px">
-        <div><div class="eyebrow" style="margin-bottom:8px">Restaurants</div>${st.restaurants.slice(0, 6).map(r => `<div class="bar-row"><span class="nm">${esc(r.name)}</span><span class="bar-track"><span class="bar-fill" style="width:${r.n / maxR * 100}%;background:${INC_TYPES.lieferando.color}"></span></span><span class="num muted">${r.n}×</span></div>`).join("")}</div>
+        <div><div class="eyebrow" style="margin-bottom:8px">Restaurants</div>${st.restaurants.slice(0, 6).map(r => `<div class="bar-row"><span class="nm with-logo" style="gap:8px">${restLogo(r.name)}<span>${esc(r.name)}</span></span><span class="bar-track"><span class="bar-fill" style="width:${r.n / maxR * 100}%;background:${INC_TYPES.lieferando.color}"></span></span><span class="num muted">${r.n}×</span></div>`).join("")}</div>
         <div><div class="eyebrow" style="margin-bottom:8px">Mitbesteller</div>${st.people.slice(0, 6).map(p => `<div class="bar-row" style="grid-template-columns:56px minmax(0,1fr) auto"><span class="code" style="justify-self:start">${esc(p.code)}</span><span class="bar-track"><span class="bar-fill" style="width:${p.n / maxP * 100}%"></span></span><span class="num muted">${p.n}× · Ø ${eur(p.avg)}</span></div>`).join("") || '<p class="muted">Noch niemand.</p>'}</div>
       </div>
       <div style="margin-top:18px"><div class="eyebrow" style="margin-bottom:8px">Wochentage</div><div style="display:grid;grid-template-columns:repeat(${days.length},1fr);gap:8px;align-items:end;height:90px">${days.map(d => `<div style="display:grid;gap:4px;justify-items:center;align-self:end"><span class="num muted" style="font-size:12px">${st.weekdays[d]}</span><span style="display:block;width:100%;max-width:56px;height:${Math.max(4, st.weekdays[d] / maxW * 56)}px;border-radius:6px 6px 2px 2px;background:${d === st.topDay ? INC_TYPES.lieferando.color : "var(--surface-3)"}"></span><span style="font-size:12px">${WEEKDAYS[d].slice(0, 2)}</span></div>`).join("")}</div></div>
@@ -3197,7 +3236,7 @@ $("#file-in").onchange = async e => {
   try {
     const obj = JSON.parse(await f.text());
     if (!obj.accounts || !obj.snapshots) throw 0;
-    const doIt = () => { DB = obj; migrate(); store.set("last-backup", new Date().toISOString()); save(true); toast("Daten importiert"); location.hash = "#uebersicht"; go(); refreshQuotes(true); };
+    const doIt = () => { DB = obj; migrate(); store.set("last-backup", new Date().toISOString()); save(true); toast("Daten importiert"); if (location.hash !== "#uebersicht") location.hash = "#uebersicht"; else go(); refreshQuotes(true); };
     if (!DB.snapshots.length) return doIt();
     openDlg(`<div class="dlg-h"><h2>Datei importieren</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
       <div class="dlg-b"><p class="sub" style="margin:0">Die Datei enthält ${obj.accounts.length} Konten und ${obj.snapshots.length} Bewertungen. Wie soll sie übernommen werden?</p>
@@ -3871,7 +3910,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v20";
+const APP_VERSION = "tracky-v21";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));

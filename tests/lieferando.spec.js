@@ -58,3 +58,33 @@ test("alte Bestellungen mit Liefergebühr rechnen weiter wie früher", async ({p
   expect(c.owes).toEqual([20, 20]);
   expect(c.cost).toBeCloseTo(45);
 });
+
+test("Restaurant-Logos: Ketten automatisch, eigenes Bild und Webseite", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.evaluate(() => {
+    const t = todayISO();
+    DB.income.orders.push({id: "r1", date: t, restaurant: "Burger King Teststraße", own: 10, serviceRate: .025, serviceCap: .89, discount: .1, participants: []},
+                          {id: "r2", date: t, restaurant: "Testnudeln", own: 10, serviceRate: .025, serviceCap: .89, discount: .1, participants: []},
+                          {id: "r3", date: t, restaurant: "Pizzeria Test", own: 10, serviceRate: .025, serviceCap: .89, discount: .1, participants: []});
+    save(true);
+  });
+  expect(await page.evaluate(() => /burgerking\.at/.test(restLogo("Burger King Teststraße")))).toBe(true);
+  await page.goto("./#lieferando");
+  await page.click("#lf-rest");
+  await expect(page.locator("dialog h2")).toHaveText("Restaurants & Logos");
+  // own picture (a 2×1 PNG, centre-cropped to a square)
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR42mP8z8DwnwEIGAEAD/4C/0y3pVYAAAAASUVORK5CYII=", "base64");
+  await page.locator('[data-rimg="testnudeln"]').click();
+  await page.locator("#r-file").setInputFiles({name: "logo.png", mimeType: "image/png", buffer: png});
+  await expect(page.locator('[data-rk="testnudeln"]')).toContainText("eigenes Bild");
+  // website
+  await page.locator('[data-rweb="pizzeria test"]').click();
+  await page.locator(".r-web input").fill("https://www.pizzeria-test.at/menu");
+  await page.locator(".r-web button").click();
+  await expect(page.locator('[data-rk="pizzeria test"]')).toContainText("pizzeria-test.at");
+  const r = await page.evaluate(() => { const s = DB.income.settings.restLogos; return [s.testnudeln.img.startsWith("data:image/jpeg"), s["pizzeria test"].domain]; });
+  expect(r).toEqual([true, "pizzeria-test.at"]);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#lf-orders")).toContainText("Testnudeln");
+  expect(errors).toEqual([]);
+});
