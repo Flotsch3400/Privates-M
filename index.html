@@ -243,6 +243,15 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
   .fab[hidden]{display:none}
   body.locked .fab{display:none}
 }
+.ih{display:grid;gap:8px;padding:4px 20px 14px 20px;background:var(--surface-2);border-top:1px dashed var(--line)}
+.ih.ih-only{background:none;border:0;padding:0 0 8px}
+.ih-row{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(90px,130px) minmax(70px,auto) auto;gap:10px;align-items:center;padding-top:8px}
+.ih-nm{min-width:0}.ih-nm b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:550}.ih-nm small{color:var(--ink-3);font-size:12px}
+.ih-q{text-align:right}.ih-v{text-align:right;font-weight:600;font-size:14px}
+.ih-calc{grid-column:2/-1;justify-self:start}
+.ih-add{margin:6px 0 0;position:relative}
+.ih-add .results{position:absolute;left:0;right:0;top:100%;z-index:20}
+@media (max-width:760px){.ih{padding:4px 14px 12px}.ih-row{grid-template-columns:auto minmax(0,1fr) 96px auto;gap:8px}.ih-v{grid-column:2/4;text-align:left;font-size:13px;color:var(--ink-2)}.ih-row [data-ihx]{grid-row:1;grid-column:4}}
 .ov-custom{display:flex;justify-content:center;padding:4px 0 8px}
 .quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .quick button{all:unset;box-sizing:border-box;display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;transition:transform .12s,border-color .12s}
@@ -315,6 +324,7 @@ body.v-guided .savebar{display:none}
 .g-done{display:flex;flex-wrap:wrap;gap:8px}
 .g-done span{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;border-radius:99px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:600}
 .seg.mini{padding:2px;border-radius:8px;margin-top:4px;display:inline-flex}
+.ih-tog{all:unset;cursor:pointer;color:var(--brand-ink);font-weight:600;text-decoration:underline;text-underline-offset:2px}
 .v-tools{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .v-rm{width:30px!important;height:30px!important;margin-top:4px;color:var(--ink-3)}
 .v-rm:hover{color:var(--neg)}
@@ -1708,6 +1718,72 @@ function quickDialog() {
     <div class="dlg-b"><div class="quick">${acts.map(([k, ic, l, sub]) => `<button type="button" data-qa="${k}"><span class="qi">${ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join("")}</div></div>`);
   $$("[data-qa]", dlg).forEach(b => b.onclick = () => acts.find(x => x[0] === b.dataset.qa)[4]());
 }
+/* Inline position editor: switch a category to "Live" and add positions right there – search, pick, type the quantity. */
+const LIVE_PENDING = new Set();   // categories switched to Live that have no position yet (this session)
+function posEditor(a, prevAmt, addOnly) {
+  const type = AUTO_TYPE[a.cat] || "crypto", ph = {crypto: "z. B. Bitcoin, Ethereum, USDC", stock: "z. B. MSCI World, Apple, IE00B4L5Y983", metal: "z. B. Gold, Silber"}[type];
+  const row = h => { const x = hVal(h); return `<div class="ih-row" data-ihh="${h.id}">${holdingLogo(h)}<span class="ih-nm"><b>${esc(h.name || h.symbol)}</b><small class="num" data-ihp>${x.price != null ? fmtPx(x.price) + " €" + (h.type === "metal" ? " je oz" : "") : "Kurs wird geladen …"}</small></span>
+      ${h.type === "wallet" || h.type === "cash" ? `<span></span>` : `<input class="input n ih-q" inputmode="decimal" enterkeyhint="done" data-ihq value="${h.qty ? fmtQ.format(h.qty) : ""}" placeholder="Menge" aria-label="Menge ${esc(h.name || h.symbol)}">`}
+      <span class="num ih-v" data-ihv>${x.value != null && x.qty ? eur(x.value) : "–"}</span>
+      <button class="btn ghost sm icon" type="button" data-ihx aria-label="${esc(h.name || h.symbol)} entfernen" title="Entfernen">${I.x}</button>
+      ${!h.qty && prevAmt > 0 && a.holdings.length === 1 && x.price ? `<button class="btn sm ih-calc" type="button" data-ihcalc>Menge aus bisherigem Betrag ${eur0(prevAmt)} berechnen</button>` : ""}</div>`; };
+  return `<div class="ih${addOnly ? " ih-only" : ""}" data-ih="${a.id}">
+    ${(addOnly ? a.holdings.filter(h => !h.qty && h.type !== "wallet" && h.type !== "cash") : a.holdings).map(row).join("")}
+    <div class="ih-add field"><input class="input" data-ihs autocomplete="off" placeholder="+ ${addOnly ? "Weitere Position" : "Position suchen"}: ${ph}" aria-label="Position hinzufügen bei ${esc(a.name)} ${esc(catLabel(a.cat))}"><div class="results" data-ihr hidden></div></div>
+    ${!a.holdings.length && prevAmt > 0 ? `<p class="hint" style="margin:0">Bisher als Betrag eingetragen: <b class="num">${eur(prevAmt)}</b>. Wähle die Position, dann rechnet Tracky die Menge auf Wunsch daraus aus.</p>` : ""}
+  </div>`;
+}
+/** Wire up an editor rendered by posEditor. onValue: a quantity changed (keep focus); redraw: positions added or removed. */
+function bindPosEditor(root, a, {onValue, redraw, prevAmt}) {
+  const el = $(`[data-ih="${a.id}"]`, root); if (!el) return;
+  const type = AUTO_TYPE[a.cat] || "crypto";
+  const focusQty = id => setTimeout(() => { const i = $(`[data-ih="${a.id}"] [data-ihh="${id}"] [data-ihq]`, root); i?.focus(); i?.scrollIntoView({block: "center", behavior: reduced() ? "auto" : "smooth"}); }, 40);
+  const afterAdd = h => { LIVE_PENDING.delete(a.id); delete a.manual; save(true); redraw(); focusQty(h.id); refreshQuotes(true).then(() => {
+    const r = $(`[data-ih="${a.id}"] [data-ihh="${h.id}"]`, root); if (!r) return;   // update in place – never disturb typing
+    const x = hVal(h); $("[data-ihp]", r).textContent = x.price != null ? fmtPx(x.price) + " €" + (h.type === "metal" ? " je oz" : "") : "Kein Kurs gefunden";
+    $("[data-ihv]", r).textContent = x.value != null && x.qty ? eur(x.value) : "–";
+    if (!h.qty && prevAmt > 0 && a.holdings.length === 1 && x.price && !$("[data-ihcalc]", r)) { r.insertAdjacentHTML("beforeend", `<button class="btn sm ih-calc" type="button" data-ihcalc>Menge aus bisherigem Betrag ${eur0(prevAmt)} berechnen</button>`);
+      $("[data-ihcalc]", r).onclick = () => { h.qty = +(prevAmt / x.price).toPrecision(8); save(true); $("[data-ihq]", r).value = fmtQ.format(h.qty); $("[data-ihv]", r).textContent = eur(h.qty * x.price); $("[data-ihcalc]", r).remove(); onValue(); }; }
+    onValue();
+  }); };
+  $$("[data-ihh]", el).forEach(r => {
+    const h = a.holdings.find(x => x.id === r.dataset.ihh); if (!h) return;
+    const q = $("[data-ihq]", r);
+    q?.addEventListener("input", () => {
+      const n = parseNum(q.value); q.setAttribute("aria-invalid", q.value.trim() !== "" && !okNum(n));
+      h.qty = okNum(n) && n > 0 ? n : null; save();
+      const x = hVal(h); $("[data-ihv]", r).textContent = x.value != null && x.qty ? eur(x.value) : "–";
+      $("[data-ihcalc]", r)?.remove(); onValue();
+    });
+    q?.addEventListener("focus", () => q.select());
+    q?.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); q.blur(); } });
+    q?.addEventListener("blur", () => { const n = parseNum(q.value); if (okNum(n) && n > 0) q.value = fmtQ.format(n); });
+    $("[data-ihcalc]", r)?.addEventListener("click", () => { const x = hVal(h); if (!x.price) return; h.qty = +(prevAmt / x.price).toPrecision(8); save(true); q.value = fmtQ.format(h.qty); $("[data-ihv]", r).textContent = eur(h.qty * x.price); $("[data-ihcalc]", r).remove(); onValue(); });
+    $("[data-ihx]", r).addEventListener("click", () => { removeWithUndo(a.holdings, h, `${h.name || h.symbol} entfernt`, () => { onValue(); redraw(); }); if (!a.holdings.length) LIVE_PENDING.add(a.id); onValue(); redraw(); });
+  });
+  const inp = $("[data-ihs]", el), res = $("[data-ihr]", el);
+  const pick = item => { const h = {id: "h" + uid(), qty: null, ...item}; a.holdings.push(h); inp.value = ""; res.hidden = true; afterAdd(h); };
+  const run = debounce(async q => {
+    if (q.length < 2 && type !== "metal") { res.hidden = true; return; }
+    if (type === "metal") {
+      const list = Object.entries(METALS).filter(([k, m]) => !q || m.name.toLowerCase().includes(q.toLowerCase()) || k.toLowerCase().includes(q.toLowerCase()));
+      res.hidden = !list.length;
+      res.innerHTML = list.map(([k, m]) => `<button type="button" data-k="${k}"><span class="with-logo">${metalIcon(k)}<span><b>${esc(m.name)}</b><br><small>Menge in Feinunzen</small></span></span></button>`).join("");
+      $$("button", res).forEach(b => b.onclick = () => pick({type: "metal", symbol: b.dataset.k, name: METALS[b.dataset.k].name}));
+      return;
+    }
+    res.hidden = false; res.innerHTML = '<div style="padding:6px 10px;display:flex;align-items:center;gap:8px" class="muted"><span data-lottie="dots" style="width:44px;height:22px"></span>Suche …</div>'; playEmpties(res);
+    try {
+      const list = await MARKET.search(q, type); if (!inp.isConnected || inp.value.trim() !== q) return;
+      res.innerHTML = list.length ? list.map((x, i) => `<button type="button" data-i="${i}"><span class="with-logo">${type === "crypto" ? logoBox(x.logo, x.name, "", true) : holdingLogo({type: "stock", symbol: x.symbol, name: x.name})}<span><b>${esc(x.name)}</b><br><small>${esc([x.ticker, x.type, x.exchange].filter(Boolean).join(" · "))}</small></span></span></button>`).join("") : '<div style="padding:10px" class="muted">Keine Treffer. Versuch es mit Kürzel, ISIN oder WKN.</div>';
+      $$("button", res).forEach(b => b.onclick = () => { const x = list[+b.dataset.i];
+        pick({type, symbol: x.symbol, name: x.name, logo: x.logo || "", ...(type === "crypto" ? {src: x.src === "dex" ? "dex" : "cg"} : {}), ...(x.ov ? {ov: x.ov} : {}), ...(x.ticker && type === "stock" ? {ticker: x.ticker} : {}), isin: x.isin || (isIsin(q) ? q : "")}); });
+    } catch { res.innerHTML = '<div style="padding:10px" class="neg">Suche gerade nicht erreichbar.</div>'; }
+  }, 300);
+  inp.addEventListener("input", () => run(inp.value.trim()));
+  if (type === "metal") inp.addEventListener("focus", () => run(inp.value.trim()));
+  inp.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("button", res)?.click(); } if (e.key === "Escape" && !res.hidden) { e.stopPropagation(); e.preventDefault(); res.hidden = true; } });
+}
 /* Overview layout: the blocks below the hero can be hidden and reordered (synced with the data). */
 const OV_BLOCKS = [["kpis", "Kennzahlen", "Seit Stichtag, Jahresbeginn, 12 Monate, Ø pro Monat"], ["month", "Dieser Monat", "Einkommen, Lieferando, letzte Bewertung"],
   ["chart", "Entwicklung & Aufteilung", "Verlauf und Verteilung"], ["periods", "Zeitraumvergleich & Struktur", "Tabellen"], ["providers", "Anbieter & Veränderungen", "Nach Plattform, größte Bewegungen"]];
@@ -2176,16 +2252,18 @@ VIEWS.bewertung = v => {
       </div>
     </div></div>`;
   const groups = $("#groups");
+  const ihOpen = new Set();
   const vrow = (a, inPlat) => {
-    const prev = base?.values[a.id], live = isLive(a), l = live ? accLive(a) : null;
+    const prev = base?.values[a.id], pend = LIVE_PENDING.has(a.id), live = isLive(a) || pend, l = isLive(a) ? accLive(a) : null, open = pend || ihOpen.has(a.id);
     const gap = live && l && prev > 0 && l.value < prev * .7;
     const sub = [inPlat && a.name !== platOf(a).name ? esc(a.name) : "",
-      live ? `${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""} · ${l?.fresh ? '<span class="pos">Live-Kurs</span>' : l ? "letzter bekannter Kurs" : "kein Kurs"}${gap ? ' · <span class="neg">deutlich weniger als zuletzt – fehlen Positionen?</span>' : ""}` : ""].filter(Boolean).join(" · ");
+      pend && !a.holdings.length ? '<span class="pos">Live – Positionen unten hinzufügen</span>'
+      : live ? `<button class="ih-tog" type="button" data-iht="${a.id}" aria-expanded="${open}">${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""} ${open ? "ausblenden" : "bearbeiten"}</button> · ${l?.fresh ? '<span class="pos">Live-Kurs</span>' : l ? "letzter bekannter Kurs" : "kein Kurs"}${gap ? ' · <span class="neg">deutlich weniger als zuletzt – fehlen Positionen?</span>' : ""}` : ""].filter(Boolean).join(" · ");
     return `<div class="vrow"><span class="nm with-logo">${inPlat ? catChip(a.cat) : accLogo(a)}<span><b>${esc(inPlat ? catLabel(a.cat) : a.name)}</b>${sub ? `<small>${sub}</small>` : ""}
         <span class="v-tools"><span class="seg mini" role="group" aria-label="Wie erfassen?"><button type="button" data-vm="${a.id}" data-m="amount" aria-pressed="${!live}" title="Einen Betrag eintragen">Betrag</button><button type="button" data-vm="${a.id}" data-m="live" aria-pressed="${live}" title="Einzelne Positionen mit Live-Kurs">Live${a.holdings.length && !live ? ` · ${a.holdings.length}` : ""}</button></span><button class="btn ghost sm icon v-rm" type="button" data-vrm="${a.id}" aria-label="${esc(catLabel(a.cat))} bei ${esc(a.provider || a.name)} entfernen" title="Entfernen">${I.trash}</button></span></span></span>
       <span class="prev num">${prev != null ? eur(prev) : "–"}</span>
       <span class="v-in"><input class="input n" inputmode="decimal" enterkeyhint="next" data-acc="${a.id}" aria-label="Wert ${esc(a.name)} ${esc(catLabel(a.cat))}" value="${fmtN.format(draft.values[a.id] ?? 0)}"><small class="v-hint" data-hint="${a.id}"></small></span>
-      <span class="delta num" data-delta="${a.id}"></span></div>`;
+      <span class="delta num" data-delta="${a.id}"></span></div>${live && open ? posEditor(a, prev ?? draft.values[a.id] ?? 0) : ""}`;
   };
   const platOf = a => ({key: platKey(a), name: a.provider || a.name});
   /** Groups of the current mode: [{key, head, list, plat?}] – platforms sorted by value, largest first. */
@@ -2262,13 +2340,19 @@ VIEWS.bewertung = v => {
   const bindRows = () => {
     $$("[data-vm]", groups).forEach(b => b.onclick = () => {
       const a = accById(b.dataset.vm), live = b.dataset.m === "live";
-      if (live === isLive(a)) return;
+      if (!live && !isLive(a) && !LIVE_PENDING.has(a.id)) return;
       const refresh = () => { if (isLive(a)) { liveFill(a); updateTotals(); } renderGroups(); };
-      if (!live) { a.manual = true; save(true); toast(`${a.name} · ${catLabel(a.cat)}: Betrag eintragen`); renderGroups(); $(`input[data-acc="${a.id}"]`, groups)?.focus(); return; }
-      delete a.manual; save(true);
-      if (a.holdings.length) { refresh(); refreshQuotes(true).then(refresh); toast(`${a.name} · ${catLabel(a.cat)}: Live aus ${a.holdings.length} Position${a.holdings.length === 1 ? "" : "en"}`); }
-      else { renderGroups(); platformDialog(platKey(a), () => { refresh(); refreshQuotes(true).then(refresh); }, a.id); toast("Füge die einzelnen Positionen hinzu – der Wert kommt dann live."); }
+      if (!live) { LIVE_PENDING.delete(a.id); ihOpen.delete(a.id); a.manual = true; save(true); renderGroups(); $(`input[data-acc="${a.id}"]`, groups)?.focus(); return; }
+      if (live === (isLive(a) || LIVE_PENDING.has(a.id))) return;
+      delete a.manual; save(true); ihOpen.add(a.id);
+      if (a.holdings.length) { refresh(); refreshQuotes(true).then(refresh); }
+      else if (!AUTO_TYPE[a.cat]) { a.manual = true; renderGroups(); cashDialog(a, null, () => { delete a.manual; refresh(); refreshQuotes(true).then(refresh); }, {}); }
+      else { LIVE_PENDING.add(a.id); renderGroups(); setTimeout(() => $(`[data-ih="${a.id}"] [data-ihs]`, groups)?.focus(), 40); }
     });
+    $$("[data-iht]", groups).forEach(b => b.onclick = () => { const id = b.dataset.iht; ihOpen.has(id) ? ihOpen.delete(id) : ihOpen.add(id); renderGroups(); });
+    accounts.forEach(a => bindPosEditor(groups, a, {prevAmt: base?.values[a.id] ?? 0,
+      onValue: () => { if (isLive(a) && liveFill(a)) { const i = $(`input[data-acc="${a.id}"]`, groups); if (i) { i.value = fmtN.format(draft.values[a.id]); hint(a.id, i.value); } updateTotals(a.id); } },
+      redraw: () => { if (isLive(a)) liveFill(a); renderGroups(); }}));
     $$("[data-vrm]", groups).forEach(b => b.onclick = () => {
       const a = accById(b.dataset.vrm);
       const kept = draft.values[a.id];
@@ -3918,10 +4002,12 @@ function platformDialog(key, done = () => go(true), focusId) {
         <p class="hint" style="margin:6px 0 2px">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jede Position landet in der passenden Kategorie, fehlende Kategorien legt Tracky an.</p></div></div></div>
       ${accs.map(a => `<div class="plat-sec" data-sec="${a.id}">
         <div class="plat-h"><button class="sec-tog" type="button" data-stog="${a.id}" aria-expanded="${secOpen(a)}" ${a.holdings.length ? "" : 'tabindex="-1" style="cursor:default"'}>${a.holdings.length ? I.chev : ""}${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}${a.holdings.length ? `<span class="muted" style="font-weight:500;font-size:12.5px;white-space:nowrap">${a.holdings.length}</span>` : ""}</button>
-          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a)}">Live</button></span><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Bearbeiten">${I.pencil}</button>${a.archived ? "" : `<button class="btn ghost sm icon v-rm" type="button" data-pdel="${a.id}" style="margin:0" aria-label="${esc(catLabel(a.cat))} entfernen" title="Bereich entfernen">${I.trash}</button>`}</span></div>
-        <div class="fold ${secOpen(a) ? "open" : ""}" data-sfold="${a.id}"><div>${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}</div></div>
-        ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen mit „Betrag / Live“.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
-        <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
+          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a) && !LIVE_PENDING.has(a.id)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a) || LIVE_PENDING.has(a.id)}">Live</button></span><b class="num">${LIVE_PENDING.has(a.id) && !a.holdings.length ? "–" : eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Bearbeiten">${I.pencil}</button>${a.archived ? "" : `<button class="btn ghost sm icon v-rm" type="button" data-pdel="${a.id}" style="margin:0" aria-label="${esc(catLabel(a.cat))} entfernen" title="Bereich entfernen">${I.trash}</button>`}</span></div>
+        <div class="fold ${secOpen(a) ? "open" : ""}" data-sfold="${a.id}"><div>${a.holdings.filter(h => h.qty || h.type === "wallet" || h.type === "cash" || !(isLive(a) && AUTO_TYPE[a.cat])).map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}</div></div>
+        ${LIVE_PENDING.has(a.id) && !a.holdings.length ? `<div style="margin:0 -20px 8px">${posEditor(a, L?.values[a.id] || 0)}</div>`
+          : a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen mit „Betrag / Live“.</p>`
+          : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Betrag – den Wert trägst du bei der Bewertung ein. Mit „Live“ erfasst du stattdessen einzelne Positionen.</p>`}
+        ${isLive(a) && AUTO_TYPE[a.cat] && a.holdings.every(h => TYPE_CAT[h.type] === a.cat || h.type === "wallet") ? posEditor(a, 0, true) : LIVE_PENDING.has(a.id) && !a.holdings.length ? "" : `<button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>`}
       </div>`).join("")}
     </div>
     <div class="dlg-f"><button class="btn" type="button" id="pl-imp">${I.paste} Depot einfügen</button><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
@@ -3930,13 +4016,16 @@ function platformDialog(key, done = () => go(true), focusId) {
     const a = accById(b.dataset.pdel);
     removeArea(a, () => { done(); if (platByKey(key)?.accs.some(x => !x.archived)) platformDialog(key, done); else dlg.close(); }, () => { done(); if (dlg.open) platformDialog(key, done); });
   });
+  const reDone = debounce(done, 400);
+  accs.forEach(a => bindPosEditor(dlg, a, {prevAmt: L?.values[a.id] || 0, onValue: reDone, redraw: () => { done(); back(); }}));
   $$("[data-pm]", dlg).forEach(b => b.onclick = () => {
     const a = accById(b.dataset.pm), live = b.dataset.m === "live";
-    if (live === isLive(a)) return;
-    if (!live) { a.manual = true; save(true); done(); back(); return; }
+    if (live === (isLive(a) || LIVE_PENDING.has(a.id))) return;
+    if (!live) { LIVE_PENDING.delete(a.id); a.manual = true; save(true); done(); back(); return; }
     delete a.manual; save(true); done();
     if (a.holdings.length) { refreshQuotes(true); back(); }
-    else { const type = AUTO_TYPE[a.cat]; type ? holdingDialog(a, null, done, {type, back}) : cashDialog(a, null, done, {back}); }
+    else if (AUTO_TYPE[a.cat]) { LIVE_PENDING.add(a.id); back(); setTimeout(() => $(`[data-ih="${a.id}"] [data-ihs]`, dlg)?.focus(), 60); }
+    else cashDialog(a, null, done, {back});
   });
   $("#pl-addtog", dlg).onclick = e => { const f = $("#pl-addfold", dlg), o = !f.classList.contains("open"); f.classList.toggle("open", o); e.currentTarget.setAttribute("aria-expanded", o); };
   $$("[data-stog]", dlg).forEach(b => b.onclick = () => {
@@ -4295,7 +4384,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v29";
+const APP_VERSION = "tracky-v30";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));

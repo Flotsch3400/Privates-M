@@ -64,10 +64,52 @@ test("Pro Bereich wählen: Betrag eintragen oder Live aus Positionen", async ({p
   // and back to live
   await page.click('[data-vm="gold"][data-m="live"]');
   expect(await page.evaluate(() => isLive(accById("gold")))).toBe(true);
-  // an account without positions: "Live" opens the account page to add them
+  // a category without positions: "Live" opens the search right in the row – no extra window
   await page.click('[data-vm="depot"][data-m="live"]');
-  await expect(page.locator("dialog h2")).toContainText("Depot Demo");
-  await page.keyboard.press("Escape");
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  await expect(page.locator('[data-ih="depot"] [data-ihs]')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test("Betrag → Live direkt in der Zeile: suchen, wählen, Menge tippen", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.goto("./#bewertung");
+  await page.click('#v-mode [data-v="plat"]');
+  const old = await page.evaluate(() => latest().values.boerse);
+  expect(old).toBeGreaterThan(0);
+  await page.click('[data-vm="boerse"][data-m="live"]');
+  const ed = page.locator('[data-ih="boerse"]');
+  await expect(ed).toContainText("Bisher als Betrag");
+  await expect(ed.locator("[data-ihs]")).toBeFocused();
+  await page.keyboard.type("bitcoin");
+  await ed.locator("[data-ihr] button").first().click();
+  // the new position waits for its quantity, the cursor is already there
+  const q = ed.locator("[data-ihq]");
+  await expect(q).toBeFocused();
+  await page.keyboard.type("0,5");
+  await expect(ed.locator("[data-ihv]")).toContainText("40.000");
+  await expect(page.locator('input[data-acc="boerse"]')).toHaveValue("40.000,00");
+  expect(await page.evaluate(() => [isLive(accById("boerse")), accById("boerse").holdings[0].qty])).toEqual([true, 0.5]);
+  // back to amount: one click, the field is ready for typing
+  await page.click('[data-vm="boerse"][data-m="amount"]');
+  await expect(page.locator('[data-ih="boerse"]')).toHaveCount(0);
+  await expect(page.locator('input[data-acc="boerse"]')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test("Auf der Plattform-Seite: Live einschalten und Position direkt erfassen", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.goto("./#konten");
+  await page.evaluate(() => platformDialog(platKey(accById("boerse"))));
+  await page.click('dialog [data-pm="boerse"][data-m="live"]');
+  const ed = page.locator('dialog [data-ih="boerse"]');
+  await expect(ed.locator("[data-ihs]")).toBeFocused();
+  await page.keyboard.type("bitcoin");
+  await ed.locator("[data-ihr] button").first().click();
+  await expect(page.locator('dialog [data-ih="boerse"] [data-ihq]')).toBeFocused();
+  await page.keyboard.type("0,25");
+  await expect(page.locator('dialog [data-ih="boerse"] [data-ihv]')).toContainText("20.000");
+  expect(await page.evaluate(() => accById("boerse").holdings[0].qty)).toBe(0.25);
   expect(errors).toEqual([]);
 });
 
