@@ -243,6 +243,7 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
   .fab[hidden]{display:none}
   body.locked .fab{display:none}
 }
+.ov-custom{display:flex;justify-content:center;padding:4px 0 8px}
 .quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .quick button{all:unset;box-sizing:border-box;display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;transition:transform .12s,border-color .12s}
 .quick button:active{transform:scale(.97);background:var(--surface-2)}
@@ -1707,6 +1708,37 @@ function quickDialog() {
     <div class="dlg-b"><div class="quick">${acts.map(([k, ic, l, sub]) => `<button type="button" data-qa="${k}"><span class="qi">${ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join("")}</div></div>`);
   $$("[data-qa]", dlg).forEach(b => b.onclick = () => acts.find(x => x[0] === b.dataset.qa)[4]());
 }
+/* Overview layout: the blocks below the hero can be hidden and reordered (synced with the data). */
+const OV_BLOCKS = [["kpis", "Kennzahlen", "Seit Stichtag, Jahresbeginn, 12 Monate, Ø pro Monat"], ["month", "Dieser Monat", "Einkommen, Lieferando, letzte Bewertung"],
+  ["chart", "Entwicklung & Aufteilung", "Verlauf und Verteilung"], ["periods", "Zeitraumvergleich & Struktur", "Tabellen"], ["providers", "Anbieter & Veränderungen", "Nach Plattform, größte Bewegungen"]];
+const ovLayout = () => { const saved = (DB.ui ||= {}).ov || []; return [...saved.filter(x => OV_BLOCKS.some(b => b[0] === x.k)), ...OV_BLOCKS.filter(b => !saved.some(x => x.k === b[0])).map(b => ({k: b[0], on: true}))]; };
+function applyOvLayout(v) {
+  const secs = [...v.querySelectorAll(":scope > section:not(.hero)")];
+  if (secs.length !== OV_BLOCKS.length) return;
+  secs.forEach((el, i) => el.dataset.ov = OV_BLOCKS[i][0]);
+  let tail = $(".ov-custom", v);
+  if (!tail) { v.insertAdjacentHTML("beforeend", `<div class="ov-custom"><button class="btn ghost sm" type="button" id="ov-custom">${I.pencil} Übersicht anpassen</button></div>`); tail = $(".ov-custom", v); $("#ov-custom", v).onclick = () => ovDialog(v); }
+  ovLayout().forEach(x => { const el = $(`:scope > section[data-ov="${x.k}"]`, v); if (el) { v.insertBefore(el, tail); el.hidden = !x.on; } });
+  resizeFns.forEach(f => f());
+}
+function ovDialog(v) {
+  const draw = () => {
+    const L = ovLayout();
+    openDlg(`<div class="dlg-h"><h2>Übersicht anpassen</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+      <div class="dlg-b" style="gap:0"><p class="sub" style="margin:0 0 8px">Blöcke ein- oder ausblenden und mit den Pfeilen sortieren. Gilt auf allen deinen Geräten.</p>
+      ${L.map((x, i) => { const b = OV_BLOCKS.find(z => z[0] === x.k); return `<div class="plat-row" style="cursor:default"><span class="nm"><b>${b[1]}</b><small>${b[2]}</small></span>
+        <span class="inl" style="gap:4px;flex:none"><button class="btn ghost sm icon" type="button" data-up="${i}" ${i === 0 ? "disabled" : ""} aria-label="${b[1]} nach oben">↑</button><button class="btn ghost sm icon" type="button" data-down="${i}" ${i === L.length - 1 ? "disabled" : ""} aria-label="${b[1]} nach unten">↓</button>
+        <label class="switch" style="margin-left:6px"><input type="checkbox" role="switch" data-on="${i}" ${x.on ? "checked" : ""} aria-label="${b[1]} anzeigen"><span></span></label></span></div>`; }).join("")}
+      </div>
+      <div class="dlg-f"><button class="btn ghost" type="button" id="ov-reset">Standard</button><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
+    const put = L2 => { DB.ui.ov = L2; save(true); applyOvLayout(v); };
+    $$("[data-on]", dlg).forEach(c => c.onchange = () => { const L2 = ovLayout(); L2[+c.dataset.on].on = c.checked; put(L2); });
+    $$("[data-up]", dlg).forEach(b => b.onclick = () => { const L2 = ovLayout(), i = +b.dataset.up; [L2[i - 1], L2[i]] = [L2[i], L2[i - 1]]; put(L2); draw(); });
+    $$("[data-down]", dlg).forEach(b => b.onclick = () => { const L2 = ovLayout(), i = +b.dataset.down; [L2[i + 1], L2[i]] = [L2[i], L2[i + 1]]; put(L2); draw(); });
+    $("#ov-reset", dlg).onclick = () => { put([]); draw(); };
+  };
+  draw();
+}
 /** Long page introductions fold away behind a small ⓘ next to the title (remembered per page). */
 function collapseIntro(v) {
   const p = $(".head > div > p", v), h1 = p?.parentElement.querySelector("h1");
@@ -1729,6 +1761,7 @@ function go(keep) {
   animateCharts = !reduced() && !keep; clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
   VIEWS[route](v);
   collapseIntro(v);
+  if (route === "uebersicht") applyOvLayout(v);
   issuesBar();
   if (!keep) { v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); }
   paintPriv();
@@ -4262,7 +4295,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v28";
+const APP_VERSION = "tracky-v29";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));

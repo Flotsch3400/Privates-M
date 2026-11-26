@@ -60,3 +60,19 @@ test("Plus-Knopf am iPhone: Schnellaktionen", async ({page}, info) => {
   await expect(page.locator("#fab")).toBeHidden();
   expect(errors).toEqual([]);
 });
+
+test("Übersicht anpassen: Blöcke ausblenden und sortieren, bleibt gespeichert", async ({page}) => {
+  const errors = await openWithDemo(page);
+  const order = () => page.$$eval("#view > section[data-ov]", els => els.filter(e => !e.hidden).map(e => e.dataset.ov));
+  expect(await order()).toEqual(["kpis", "month", "chart", "periods", "providers"]);
+  await page.click("#ov-custom");
+  await page.click('[data-on="0"]');            // hide key figures
+  await page.click('[data-up="2"]');            // move chart above "month" (index 2 → 1)
+  await page.click("dialog [data-x]");
+  expect(await order()).toEqual(["chart", "month", "periods", "providers"]);
+  await page.reload();
+  await expect(page.locator(".hero-total")).toBeVisible();
+  expect(await order()).toEqual(["chart", "month", "periods", "providers"]);
+  expect(await page.evaluate(() => DB.ui.ov.map(x => x.k + (x.on ? "" : "-")))).toEqual(["kpis-", "chart", "month", "periods", "providers"]);
+  expect(errors).toEqual([]);
+});
