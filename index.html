@@ -267,6 +267,8 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 /* ---------- valuation ---------- */
 .val-head{display:grid;grid-template-columns:200px minmax(0,1fr) auto;gap:14px;align-items:end}
 .val-group{overflow:hidden}
+.v-addcat{padding:4px 14px 12px}
+.v-catpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding-top:8px}
 .gh{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;cursor:pointer;user-select:none}
 .gh .l{display:flex;align-items:center;gap:10px;font-weight:650;min-width:0}
 .gh .r{display:flex;align-items:center;gap:12px}
@@ -1959,7 +1961,8 @@ VIEWS.bewertung = v => {
     return true;
   };
   if (!editing) accounts.forEach(a => { if (!(isLive(a) && liveFill(a))) draft.values[a.id] = base?.values[a.id] ?? 0; });
-  const open = new Set(store.get("val-open", DB.categories.map(c => c.key)));
+  const closed = new Set(store.get("val-closed", []));
+  let vmode = store.get("val-mode", "plat");
   v.innerHTML = `
     <div class="head"><div><h1>${editing ? "Bewertung bearbeiten" : "Neue Bewertung"}</h1>
       <p>${editing ? `Stichtag ${fmtDateL(editing.date)}.` : base ? `Alle Werte sind mit dem Stand vom ${fmtDate(base.date)} vorausgefüllt. Konten mit Depot-Positionen werden mit aktuellen Kursen berechnet. Ändere nur, was sich bewegt hat.` : "Trage für jedes Konto den aktuellen Wert ein."}</p></div>
@@ -1974,6 +1977,8 @@ VIEWS.bewertung = v => {
       <div class="field"><span class="lbl">&nbsp;</span><span class="hint">Rechnen wie in Excel, z. B. <span class="num">629*4,69</span></span></div>
     </div></div>
     <div id="v-msg">${(() => { const o = openDebts().reduce((t, d) => t + d.sum, 0); return o > 0 ? `<div class="msg info msg-row"><span>Kollegen schulden dir noch <b class="num">${eur(o)}</b> aus Lieferando-Bestellungen. Das Geld ist schon von deinem Lieferando-Guthaben abgegangen.</span><a class="btn sm" href="#lieferando">Ansehen</a></div>` : ""; })()}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" id="v-mode"><button type="button" data-v="plat">Nach Plattform</button><button type="button" data-v="cat">Nach Kategorie</button></div>
+      <button class="btn ghost sm" type="button" id="v-all"></button></div>
     <div id="groups" style="display:grid;gap:14px"></div>
     <div class="savebar"><div class="in">
       <div><div class="eyebrow">Summe</div><div class="tot num" id="v-tot"></div></div>
@@ -1984,31 +1989,63 @@ VIEWS.bewertung = v => {
       </div>
     </div></div>`;
   const groups = $("#groups");
-  const vrow = a => {
+  const vrow = (a, inPlat) => {
     const prev = base?.values[a.id], live = isLive(a), l = live ? accLive(a) : null;
     const gap = live && l && prev > 0 && l.value < prev * .7;
-    return `<div class="vrow"><span class="nm with-logo">${accLogo(a)}<span><b>${esc(a.name)}</b>${live ? `<small>${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""} · ${l?.fresh ? '<span class="pos">Live-Kurs</span>' : l ? "letzter bekannter Kurs" : "kein Kurs"}${gap ? ' · <span class="neg">deutlich weniger als zuletzt, fehlen Positionen?</span>' : ""}</small>` : ""}</span></span>
+    const sub = [inPlat && a.name !== platOf(a).name ? esc(a.name) : "",
+      live ? `${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""} · ${l?.fresh ? '<span class="pos">Live-Kurs</span>' : l ? "letzter bekannter Kurs" : "kein Kurs"}${gap ? ' · <span class="neg">deutlich weniger als zuletzt – fehlen Positionen?</span>' : ""}` : ""].filter(Boolean).join(" · ");
+    return `<div class="vrow"><span class="nm with-logo">${inPlat ? catChip(a.cat) : accLogo(a)}<span><b>${esc(inPlat ? catLabel(a.cat) : a.name)}</b>${sub ? `<small>${sub}</small>` : ""}</span></span>
       <span class="prev num">${prev != null ? eur(prev) : "–"}</span>
-      <input class="input n" inputmode="decimal" data-acc="${a.id}" aria-label="Wert ${esc(a.name)}" value="${fmtN.format(draft.values[a.id] ?? 0)}">
+      <input class="input n" inputmode="decimal" enterkeyhint="next" data-acc="${a.id}" aria-label="Wert ${esc(a.name)} ${esc(catLabel(a.cat))}" value="${fmtN.format(draft.values[a.id] ?? 0)}">
       <span class="delta num" data-delta="${a.id}"></span></div>`;
   };
+  const platOf = a => ({key: platKey(a), name: a.provider || a.name});
+  /** Groups of the current mode: [{key, head, list, plat?}] – platforms sorted by value, largest first. */
+  const groupList = () => {
+    if (vmode === "cat") return DB.categories.map(c => ({key: "c:" + c.key, head: `${catChip(c.key)}${esc(c.label)}`, list: accounts.filter(a => a.cat === c.key)})).filter(g => g.list.length);
+    const m = new Map();
+    accounts.forEach(a => { const pl = platOf(a); if (!m.has(pl.key)) m.set(pl.key, {key: "p:" + pl.key, plat: pl, list: []}); m.get(pl.key).list.push(a); });
+    const val = a => draft.values[a.id] ?? base?.values[a.id] ?? 0;
+    return [...m.values()].map(g => {
+      const p = platByKey(g.plat.key) || {name: g.plat.name, accs: g.list};
+      g.list.sort((x, y) => catIdx(x.cat) - catIdx(y.cat));
+      g.head = `${platLogo(p)}<span style="font-weight:700">${esc(g.plat.name)}</span>`;
+      g.sum = g.list.reduce((t, a) => t + val(a), 0);
+      return g;
+    }).sort((x, y) => y.sum - x.sum || x.plat.name.localeCompare(y.plat.name));
+  };
+  let gs = [];
   const renderGroups = () => {
-    groups.innerHTML = DB.categories.map(c => {
-      const list = accounts.filter(a => a.cat === c.key); if (!list.length) return "";
-      const o = open.has(c.key);
-      return `<div class="card val-group" data-cat="${c.key}">
-        <div class="gh" role="button" tabindex="0" aria-expanded="${o}"><span class="l">${I.chev}${catChip(c.key)}${esc(c.label)} <span class="muted" style="font-weight:400">${list.length}</span></span>
+    $$("#v-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === vmode));
+    gs = groupList();
+    groups.innerHTML = gs.map(g => {
+      const o = !closed.has(g.key), have = new Set(g.list.map(a => a.cat));
+      const missing = g.plat ? DB.categories.filter(c => !have.has(c.key)) : [];
+      return `<div class="card val-group" data-g="${esc(g.key)}">
+        <div class="gh" role="button" tabindex="0" aria-expanded="${o}"><span class="l">${I.chev}${g.head} <span class="muted" style="font-weight:400">${g.list.length}</span></span>
           <span class="r"><span class="num" data-cat-delta style="font-size:13px"></span><b class="num" data-cat-sum></b></span></div>
         <div class="fold ${o ? "open" : ""}"><div class="gb">
-          <div class="vrow vrow-h"><span>Konto</span><span style="text-align:right">${base ? fmtDate(base.date) : "Vorher"}</span><span style="text-align:right">Neuer Wert</span><span style="text-align:right">Veränderung</span></div>
-          ${list.map(vrow).join("")}
+          <div class="vrow vrow-h"><span>${g.plat ? "Bereich" : "Konto"}</span><span style="text-align:right">${base ? fmtDate(base.date) : "Vorher"}</span><span style="text-align:right">Neuer Wert</span><span style="text-align:right">Veränderung</span></div>
+          ${g.list.map(a => vrow(a, !!g.plat)).join("")}
+          ${g.plat && missing.length ? `<div class="v-addcat"><button class="btn ghost sm" type="button" data-addcat="${esc(g.plat.key)}" aria-expanded="false">${I.plus} Kategorie hinzufügen</button>
+            <div class="fold"><div><div class="v-catpick">${missing.map(c => `<button class="plat-cat" type="button" data-newcat="${c.key}" data-plat="${esc(g.plat.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div></div></div></div>` : ""}
         </div></div></div>`;
-    }).join("");
+    }).join("") || '<div class="card empty">Noch keine Konten. Lege mit „Konto hinzufügen“ das erste an.</div>';
+    const allOpen = gs.every(g => !closed.has(g.key));
+    $("#v-all").textContent = allOpen ? "Alle zuklappen" : "Alle aufklappen";
     $$(".gh", groups).forEach(h => {
-      const t = () => { const k = h.parentElement.dataset.cat; open.has(k) ? open.delete(k) : open.add(k); store.set("val-open", [...open]); h.setAttribute("aria-expanded", open.has(k)); h.nextElementSibling.classList.toggle("open", open.has(k)); };
+      const t = () => { const k = h.parentElement.dataset.g, o = closed.has(k); o ? closed.delete(k) : closed.add(k); store.set("val-closed", [...closed]); h.setAttribute("aria-expanded", o); h.nextElementSibling.classList.toggle("open", o); $("#v-all").textContent = gs.every(g => !closed.has(g.key)) ? "Alle zuklappen" : "Alle aufklappen"; };
       h.onclick = t; h.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); t(); } };
     });
-    $$("input[data-acc]", groups).forEach(inp => {
+    $$("[data-addcat]", groups).forEach(b => b.onclick = () => { const f = b.nextElementSibling, o = !f.classList.contains("open"); f.classList.toggle("open", o); b.setAttribute("aria-expanded", o); });
+    $$("[data-newcat]", groups).forEach(b => b.onclick = () => {
+      const g = gs.find(x => x.plat?.key === b.dataset.plat), cat = b.dataset.newcat, src = g.list.find(a => a.domain) || g.list[0];
+      const na = {id: slugId(cat, g.plat.name), name: g.plat.name, provider: src.provider || g.plat.name, ...(src.domain ? {domain: src.domain} : {}), cat, holdings: [], archived: false};
+      DB.accounts.push(na); accounts.push(na); draft.values[na.id] = 0; save(true);
+      toast(`${g.plat.name} · ${catLabel(cat)} angelegt`); renderGroups();
+      const inp = $(`input[data-acc="${na.id}"]`, groups); inp?.focus(); inp?.scrollIntoView({block: "center", behavior: reduced() ? "auto" : "smooth"});
+    });
+    $$("input[data-acc]", groups).forEach((inp, i, all) => {
       inp.addEventListener("input", () => {
         const n = parseNum(inp.value); inp.setAttribute("aria-invalid", Number.isNaN(n));
         draft.values[inp.dataset.acc] = okNum(n) ? round2(n) : 0; delete draft.detail[inp.dataset.acc];
@@ -2016,20 +2053,24 @@ VIEWS.bewertung = v => {
       });
       inp.addEventListener("blur", () => { const n = parseNum(inp.value); if (okNum(n)) inp.value = fmtN.format(round2(n)); });
       inp.addEventListener("focus", () => inp.select());
+      // Enter jumps to the next visible field – quick walk through all accounts
+      inp.addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const next = all.slice(i + 1).find(x => x.offsetParent && getComputedStyle(x).visibility !== "hidden"); if (next) { next.focus(); next.scrollIntoView({block: "center", behavior: reduced() ? "auto" : "smooth"}); } else inp.blur(); });
     });
     updateTotals();
   };
+  $$("#v-mode button").forEach(b => b.onclick = () => { vmode = b.dataset.v; store.set("val-mode", vmode); renderGroups(); });
+  $("#v-all").onclick = () => { const o = gs.every(g => !closed.has(g.key)); gs.forEach(g => o ? closed.add(g.key) : closed.delete(g.key)); store.set("val-closed", [...closed]); renderGroups(); };
   const updateTotals = only => {
     const t = total(draft), bt = total(base);
     $("#v-tot").textContent = eur(t);
     $("#v-delta").innerHTML = base ? `<span class="chip ${cls(t - bt)}">${sEur(t - bt)} · ${pct(t / bt - 1)}</span> <span class="muted">ggü. ${fmtDate(base.date)}</span>` : "";
     (only ? [only] : accounts.map(a => a.id)).forEach(id => { const el = $(`[data-delta="${id}"]`, groups); if (!el) return; const d = (draft.values[id] || 0) - (base?.values[id] || 0); el.className = "delta num " + cls(d); el.textContent = Math.abs(d) < .005 ? "–" : sEur(d); });
-    DB.categories.forEach(c => {
-      const g = $(`.val-group[data-cat="${c.key}"]`, groups); if (!g) return;
-      const ids = accounts.filter(a => a.cat === c.key).map(a => a.id);
-      const s = ids.reduce((x, id) => x + (draft.values[id] || 0), 0), p = ids.reduce((x, id) => x + (base?.values[id] || 0), 0);
-      $("[data-cat-sum]", g).textContent = eur(s);
-      const de = $("[data-cat-delta]", g); de.className = "num " + cls(s - p); de.textContent = base && Math.abs(s - p) >= .005 ? sEur(s - p) : "";
+    gs.forEach(g => {
+      const el = [...groups.children].find(x => x.dataset.g === g.key); if (!el) return;
+      const ids = g.list.map(a => a.id);
+      const sm = ids.reduce((x, id) => x + (draft.values[id] || 0), 0), pv = ids.reduce((x, id) => x + (base?.values[id] || 0), 0);
+      $("[data-cat-sum]", el).textContent = eur(sm);
+      const de = $("[data-cat-delta]", el); de.className = "num " + cls(sm - pv); de.textContent = base && Math.abs(sm - pv) >= .005 ? sEur(sm - pv) : "";
     });
   };
   renderGroups();
@@ -2040,7 +2081,7 @@ VIEWS.bewertung = v => {
     let n = 0; accounts.filter(isLive).forEach(a => { if (liveFill(a)) n++; });
     renderGroups(); toast(n ? `${n} Konto/Konten mit aktuellen Kursen bewertet` : "Keine aktuellen Kurse verfügbar");
   });
-  $("#v-add").onclick = () => accountDialog(null, () => go());
+  $("#v-add").onclick = () => accountDialog(null, na => { if (na && !accounts.includes(na)) { accounts.push(na); draft.values[na.id] = 0; } renderGroups(); const inp = na && $(`input[data-acc="${na.id}"]`, groups); inp?.focus(); });
   $("#v-del")?.addEventListener("click", () => confirmDialog(`Bewertung vom ${fmtDate(editing.date)} löschen?`, "Das lässt sich nicht rückgängig machen.", "Löschen", () => {
     DB.snapshots = DB.snapshots.filter(s => s !== editing); save(true); toast("Bewertung gelöscht"); location.hash = "#verlauf";
   }));
@@ -3964,7 +4005,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v23";
+const APP_VERSION = "tracky-v24";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
