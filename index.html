@@ -98,6 +98,9 @@ h3{font-size:14px;font-weight:600;margin:0}
 .muted{color:var(--ink-3)} .sub{color:var(--ink-2)}
 .head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .head p{margin:6px 0 0;color:var(--ink-2);max-width:72ch}
+.info-btn{display:inline-grid;place-items:center;width:24px;height:24px;margin-left:10px;vertical-align:4px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:italic 700 13px Georgia,serif;cursor:pointer;transition:background .15s,color .15s}
+.info-btn[aria-expanded="true"]{background:var(--brand-soft);color:var(--brand-ink);border-color:transparent}
+.info-btn:active{transform:scale(.92)}
 .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 /* ---------- controls ---------- */
@@ -268,6 +271,24 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .val-head{display:grid;grid-template-columns:200px minmax(0,1fr) auto;gap:14px;align-items:end}
 .val-group{overflow:hidden}
 .v-addcat{padding:4px 14px 12px}
+.v-in{display:grid;gap:3px;min-width:0}
+.v-hint{font-size:11.5px;text-align:right;min-height:14px;color:var(--ink-3);line-height:1.2}
+.v-hint .h-delta{display:none}
+@media (max-width:760px){ .v-hint .h-delta{display:inline} }
+.g-prog{display:grid;gap:6px}
+.g-bar{height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden}
+.g-bar span{display:block;height:100%;background:var(--brand);border-radius:99px;transition:width .35s cubic-bezier(.2,.8,.2,1)}
+.g-nav{display:flex;justify-content:space-between;gap:10px}
+.g-nav .btn{min-width:120px}
+.g-step .gh{cursor:default}
+.g-step .gh .chev{display:none}
+.g-nav{position:sticky;bottom:12px;z-index:5;padding:10px;margin:0 -10px;border-radius:16px;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+@media (max-width:760px){ .g-nav{bottom:calc(72px + env(safe-area-inset-bottom,0px))} }
+body.v-guided .savebar{display:none}
+.g-step .gh .l{font-size:17px}
+.g-sum .big{font-size:30px;font-weight:750;letter-spacing:-.02em}
+.g-done{display:flex;flex-wrap:wrap;gap:8px}
+.g-done span{display:inline-flex;align-items:center;gap:6px;padding:5px 10px 5px 6px;border-radius:99px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:600}
 .seg.mini{padding:2px;border-radius:8px;margin-top:4px;display:inline-flex}
 .v-tools{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .v-rm{width:30px!important;height:30px!important;margin-top:4px;color:var(--ink-3)}
@@ -550,6 +571,9 @@ dialog[open]{animation:dlgIn .18s cubic-bezier(.2,.7,.2,1)}
 dialog[open]::backdrop{animation:fadeIn .18s ease-out}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .toast{animation:toastIn .22s cubic-bezier(.2,.7,.2,1)}
+.toast.has-undo{display:flex;align-items:center;gap:14px;padding-right:8px}
+.toast-undo{all:unset;cursor:pointer;font-weight:700;color:var(--brand);padding:6px 10px;border-radius:8px}
+.toast-undo:active{background:rgba(255,255,255,.12)}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 .btn:active:not(:disabled),.seg button:active,.tabbar a:active,.nav a:active,.src-chip:active{transform:scale(.97)}
 .btn,.seg button,.tabbar a,.nav a{transition:background .12s,border-color .12s,box-shadow .12s,transform .08s}
@@ -675,10 +699,23 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 };
-function toast(msg) {
+/** Short message at the bottom; with {undo} it carries a "Rückgängig" button and stays a little longer. */
+function toast(msg, opts = {}) {
   $$(".toast").forEach(t => t.remove());
-  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg; t.setAttribute("role", "status");
-  document.body.append(t); setTimeout(() => t.remove(), 2600);
+  const t = document.createElement("div"); t.className = "toast" + (opts.undo ? " has-undo" : ""); t.setAttribute("role", "status");
+  t.append(document.createTextNode(msg));
+  if (opts.undo) {
+    const b = document.createElement("button"); b.type = "button"; b.className = "toast-undo"; b.textContent = "Rückgängig";
+    b.onclick = () => { t.remove(); opts.undo(); };
+    t.append(b);
+  }
+  document.body.append(t); setTimeout(() => t.remove(), opts.undo ? 6000 : 2600);
+}
+/** Removes an item right away and offers to bring it back. */
+function removeWithUndo(arr, item, msg, onUndo = () => go(true)) {
+  const i = arr.indexOf(item); if (i < 0) return;
+  arr.splice(i, 1); save(true);
+  toast(msg, {undo: () => { arr.splice(Math.min(i, arr.length), 0, item); save(true); onUndo(); toast("Wiederhergestellt"); }});
 }
 const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
 
@@ -1587,15 +1624,27 @@ function renderNav() {
   };
 }
 const VIEWS = {};
+/** Long page introductions fold away behind a small ⓘ next to the title (remembered per page). */
+function collapseIntro(v) {
+  const p = $(".head > div > p", v), h1 = p?.parentElement.querySelector("h1");
+  if (!p || !h1 || p.textContent.trim().length < 70 || $(".info-btn", h1)) return;
+  const k = "intro-" + route, open = !!store.get(k, false);
+  p.id = "intro-" + route; p.hidden = !open;
+  h1.insertAdjacentHTML("beforeend", `<button class="info-btn" type="button" aria-controls="${p.id}" aria-expanded="${open}" aria-label="Erklärung ${open ? "ausblenden" : "anzeigen"}" title="Erklärung">i</button>`);
+  const b = $(".info-btn", h1);
+  b.onclick = () => { const o = p.hidden; p.hidden = !o; b.setAttribute("aria-expanded", o); b.setAttribute("aria-label", `Erklärung ${o ? "ausblenden" : "anzeigen"}`); store.set(k, o); };
+}
 function go(keep) {
   const h = location.hash.replace("#", "");
   route = NAV.some(n => n[0] === h) ? h : "uebersicht";
   if (route !== "bewertung") editId = null;
+  document.body.classList.remove("v-guided");
   if (dlg.open) dlg.close();
   renderNav(); onQuotes = () => {}; resizeFns = [];
   const v = $("#view"); v.innerHTML = "";
   animateCharts = !reduced() && !keep; clearTimeout(go.t); go.t = setTimeout(() => animateCharts = false, 900);
   VIEWS[route](v);
+  collapseIntro(v);
   issuesBar();
   if (!keep) { v.classList.remove("enter"); void v.offsetWidth; v.classList.add("enter"); }
   paintPriv();
@@ -1982,7 +2031,8 @@ VIEWS.bewertung = v => {
   };
   if (!editing) accounts.forEach(a => { if (!(isLive(a) && liveFill(a))) draft.values[a.id] = base?.values[a.id] ?? 0; });
   const closed = new Set(store.get("val-closed", []));
-  let vmode = store.get("val-mode", "plat");
+  let vmode = store.get("val-mode", "guided");
+  let gIdx = 0, gKeys = null;
   v.innerHTML = `
     <div class="head"><div><h1>${editing ? "Bewertung bearbeiten" : "Neue Bewertung"}</h1>
       <p>${editing ? `Stichtag ${fmtDateL(editing.date)}.` : base ? `Alle Werte sind mit dem Stand vom ${fmtDate(base.date)} vorausgefüllt. Konten mit Depot-Positionen werden mit aktuellen Kursen berechnet. Ändere nur, was sich bewegt hat.` : "Trage für jedes Konto den aktuellen Wert ein."}</p></div>
@@ -1997,7 +2047,7 @@ VIEWS.bewertung = v => {
       <div class="field"><span class="lbl">&nbsp;</span><span class="hint">Rechnen wie in Excel, z. B. <span class="num">629*4,69</span></span></div>
     </div></div>
     <div id="v-msg">${(() => { const o = openDebts().reduce((t, d) => t + d.sum, 0); return o > 0 ? `<div class="msg info msg-row"><span>Kollegen schulden dir noch <b class="num">${eur(o)}</b> aus Lieferando-Bestellungen. Das Geld ist schon von deinem Lieferando-Guthaben abgegangen.</span><a class="btn sm" href="#lieferando">Ansehen</a></div>` : ""; })()}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" id="v-mode"><button type="button" data-v="plat">Nach Plattform</button><button type="button" data-v="cat">Nach Kategorie</button></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" id="v-mode"><button type="button" data-v="guided">Geführt</button><button type="button" data-v="plat">Nach Plattform</button><button type="button" data-v="cat">Nach Kategorie</button></div>
       <button class="btn ghost sm" type="button" id="v-all"></button></div>
     <div id="groups" style="display:grid;gap:14px"></div>
     <div class="savebar"><div class="in">
@@ -2017,7 +2067,7 @@ VIEWS.bewertung = v => {
     return `<div class="vrow"><span class="nm with-logo">${inPlat ? catChip(a.cat) : accLogo(a)}<span><b>${esc(inPlat ? catLabel(a.cat) : a.name)}</b>${sub ? `<small>${sub}</small>` : ""}
         <span class="v-tools"><span class="seg mini" role="group" aria-label="Wie erfassen?"><button type="button" data-vm="${a.id}" data-m="amount" aria-pressed="${!live}" title="Einen Betrag eintragen">Betrag</button><button type="button" data-vm="${a.id}" data-m="live" aria-pressed="${live}" title="Einzelne Positionen mit Live-Kurs">Live${a.holdings.length && !live ? ` · ${a.holdings.length}` : ""}</button></span><button class="btn ghost sm icon v-rm" type="button" data-vrm="${a.id}" aria-label="${esc(catLabel(a.cat))} bei ${esc(a.provider || a.name)} entfernen" title="Entfernen">${I.trash}</button></span></span></span>
       <span class="prev num">${prev != null ? eur(prev) : "–"}</span>
-      <input class="input n" inputmode="decimal" enterkeyhint="next" data-acc="${a.id}" aria-label="Wert ${esc(a.name)} ${esc(catLabel(a.cat))}" value="${fmtN.format(draft.values[a.id] ?? 0)}">
+      <span class="v-in"><input class="input n" inputmode="decimal" enterkeyhint="next" data-acc="${a.id}" aria-label="Wert ${esc(a.name)} ${esc(catLabel(a.cat))}" value="${fmtN.format(draft.values[a.id] ?? 0)}"><small class="v-hint" data-hint="${a.id}"></small></span>
       <span class="delta num" data-delta="${a.id}"></span></div>`;
   };
   const platOf = a => ({key: platKey(a), name: a.provider || a.name});
@@ -2036,10 +2086,7 @@ VIEWS.bewertung = v => {
     }).sort((x, y) => y.sum - x.sum || x.plat.name.localeCompare(y.plat.name));
   };
   let gs = [];
-  const renderGroups = () => {
-    $$("#v-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === vmode));
-    gs = groupList();
-    groups.innerHTML = gs.map(g => {
+  const groupCard = g => {
       const o = !closed.has(g.key), have = new Set(g.list.map(a => a.cat));
       const missing = g.plat ? DB.categories.filter(c => !have.has(c.key)) : [];
       return `<div class="card val-group" data-g="${esc(g.key)}">
@@ -2051,13 +2098,51 @@ VIEWS.bewertung = v => {
           ${g.plat && missing.length ? `<div class="v-addcat"><button class="btn ghost sm" type="button" data-addcat="${esc(g.plat.key)}" aria-expanded="false">${I.plus} Kategorie hinzufügen</button>
             <div class="fold"><div><div class="v-catpick">${missing.map(c => `<button class="plat-cat" type="button" data-newcat="${c.key}" data-plat="${esc(g.plat.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div></div></div></div>` : ""}
         </div></div></div>`;
-    }).join("") || '<div class="card empty">Noch keine Konten. Lege mit „Konto hinzufügen“ das erste an.</div>';
+  };
+  const changeOf = id => (draft.values[id] || 0) - (base?.values[id] || 0);
+  /** Guided month-end: one platform per step (only those that need typing), then a summary. */
+  const renderGuided = () => {
+    const all = groupList();
+    if (!gKeys) gKeys = all.filter(g => g.list.some(a => !isLive(a))).map(g => g.key);
+    const steps = gKeys.map(k => all.find(g => g.key === k)).filter(Boolean), auto = all.filter(g => !gKeys.includes(g.key));
+    gIdx = Math.max(0, Math.min(gIdx, steps.length));
+    const done = gIdx >= steps.length, pctDone = steps.length ? gIdx / steps.length : 1;
+    const bar = `<div class="g-prog"><div class="g-bar"><span style="width:${pctDone * 100}%"></span></div><span class="muted" style="font-size:13px">${done ? "Alles durchgegangen" : `Schritt ${gIdx + 1} von ${steps.length}`}${auto.length ? ` · ${auto.length} Plattform${auto.length === 1 ? "" : "en"} automatisch ✓` : ""}</span></div>`;
+    if (!done) {
+      const g = steps[gIdx]; gs = [g];
+      closed.delete(g.key);
+      groups.innerHTML = bar + groupCard(g).replace('class="card val-group"', 'class="card val-group g-step"') +
+        `<div class="g-nav"><button class="btn" type="button" id="g-back" ${gIdx === 0 ? "disabled" : ""}>← Zurück</button><button class="btn primary" type="button" id="g-next">${gIdx === steps.length - 1 ? "Zur Zusammenfassung" : "Weiter"} →</button></div>`;
+    } else {
+      gs = [];
+      const t = total(draft), bt = total(base);
+      const ch = accounts.map(a => ({a, d: changeOf(a.id)})).filter(x => Math.abs(x.d) >= 1).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
+      groups.innerHTML = bar + `<div class="card g-sum"><div class="card-b" style="display:grid;gap:16px">
+          <div><div class="eyebrow">Neues Nettovermögen</div><div class="big num">${eur(t)}</div>${base ? `<span class="chip ${cls(t - bt)}">${sEur(t - bt)} · ${pct(t / bt - 1)}</span> <span class="muted">seit ${fmtDate(base.date)}</span>` : ""}</div>
+          ${ch.length ? `<div><div class="eyebrow" style="margin-bottom:6px">Größte Veränderungen</div>${ch.map(x => `<div class="plat-row" style="cursor:default"><span class="nm with-logo">${accLogo(x.a)}<span><b>${esc(x.a.provider || x.a.name)}</b><small>${esc(catLabel(x.a.cat))}</small></span></span><span class="num ${cls(x.d)}">${sEur(x.d)}</span></div>`).join("")}</div>` : ""}
+          ${auto.length ? `<div><div class="eyebrow" style="margin-bottom:8px">Automatisch bewertet</div><div class="g-done">${auto.map(g => `<span>${platLogo(platByKey(g.plat.key) || {name: g.plat.name, accs: g.list}, "sm")}${esc(g.plat.name)} · <b class="num">${eur0(g.list.reduce((x, a) => x + (draft.values[a.id] || 0), 0))}</b></span>`).join("")}</div></div>` : ""}
+        </div></div>
+        <div class="g-nav"><button class="btn" type="button" id="g-back" ${steps.length ? "" : "disabled"}>← Zurück</button><button class="btn primary" type="button" id="g-save">${I.check || ""} Bewertung speichern</button></div>`;
+    }
+    $("#g-back")?.addEventListener("click", () => { gIdx--; renderGroups(); window.scrollTo({top: 0, behavior: reduced() ? "auto" : "smooth"}); });
+    $("#g-next")?.addEventListener("click", () => { gIdx++; renderGroups(); window.scrollTo({top: 0, behavior: reduced() ? "auto" : "smooth"}); setTimeout(() => $("input[data-acc]", groups)?.focus({preventScroll: true}), 60); });
+    $("#g-save")?.addEventListener("click", () => $("#v-save").click());
+  };
+  const renderGroups = () => {
+    $$("#v-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === vmode));
+    $("#v-all").hidden = vmode === "guided"; document.body.classList.toggle("v-guided", vmode === "guided");
+    if (vmode === "guided") { renderGuided(); bindRows(); return; }
+    gs = groupList();
+    groups.innerHTML = gs.map(groupCard).join("") || '<div class="card empty">Noch keine Konten. Lege mit „Konto hinzufügen“ das erste an.</div>';
     const allOpen = gs.every(g => !closed.has(g.key));
     $("#v-all").textContent = allOpen ? "Alle zuklappen" : "Alle aufklappen";
     $$(".gh", groups).forEach(h => {
       const t = () => { const k = h.parentElement.dataset.g, o = closed.has(k); o ? closed.delete(k) : closed.add(k); store.set("val-closed", [...closed]); h.setAttribute("aria-expanded", o); h.nextElementSibling.classList.toggle("open", o); $("#v-all").textContent = gs.every(g => !closed.has(g.key)) ? "Alle zuklappen" : "Alle aufklappen"; };
       h.onclick = t; h.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); t(); } };
     });
+    bindRows();
+  };
+  const bindRows = () => {
     $$("[data-vm]", groups).forEach(b => b.onclick = () => {
       const a = accById(b.dataset.vm), live = b.dataset.m === "live";
       if (live === isLive(a)) return;
@@ -2069,7 +2154,9 @@ VIEWS.bewertung = v => {
     });
     $$("[data-vrm]", groups).forEach(b => b.onclick = () => {
       const a = accById(b.dataset.vrm);
-      removeArea(a, () => { const i = accounts.indexOf(a); if (i >= 0) accounts.splice(i, 1); delete draft.values[a.id]; delete draft.detail[a.id]; renderGroups(); });
+      const kept = draft.values[a.id];
+      removeArea(a, () => { const i = accounts.indexOf(a); if (i >= 0) accounts.splice(i, 1); delete draft.values[a.id]; delete draft.detail[a.id]; renderGroups(); },
+        () => { if (!accounts.includes(a)) accounts.push(a); draft.values[a.id] = kept ?? 0; renderGroups(); });
     });
     $$("[data-addcat]", groups).forEach(b => b.onclick = () => { const f = b.nextElementSibling, o = !f.classList.contains("open"); f.classList.toggle("open", o); b.setAttribute("aria-expanded", o); });
     $$("[data-newcat]", groups).forEach(b => b.onclick = () => {
@@ -2083,17 +2170,24 @@ VIEWS.bewertung = v => {
       inp.addEventListener("input", () => {
         const n = parseNum(inp.value); inp.setAttribute("aria-invalid", Number.isNaN(n));
         draft.values[inp.dataset.acc] = okNum(n) ? round2(n) : 0; delete draft.detail[inp.dataset.acc];
-        updateTotals(inp.dataset.acc);
+        updateTotals(inp.dataset.acc); hint(inp.dataset.acc, inp.value);
       });
+      hint(inp.dataset.acc, inp.value);
       inp.addEventListener("blur", () => { const n = parseNum(inp.value); if (okNum(n)) inp.value = fmtN.format(round2(n)); });
       inp.addEventListener("focus", () => inp.select());
       // Enter jumps to the next visible field – quick walk through all accounts
-      inp.addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const next = all.slice(i + 1).find(x => x.offsetParent && getComputedStyle(x).visibility !== "hidden"); if (next) { next.focus(); next.scrollIntoView({block: "center", behavior: reduced() ? "auto" : "smooth"}); } else inp.blur(); });
+      inp.addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const next = all.slice(i + 1).find(x => x.offsetParent && getComputedStyle(x).visibility !== "hidden"); if (!next && vmode === "guided") { inp.blur(); $("#g-next")?.click(); return; } if (next) { next.focus(); next.scrollIntoView({block: "center", behavior: reduced() ? "auto" : "smooth"}); } else inp.blur(); });
     });
     updateTotals();
   };
   $$("#v-mode button").forEach(b => b.onclick = () => { vmode = b.dataset.v; store.set("val-mode", vmode); renderGroups(); });
   $("#v-all").onclick = () => { const o = gs.every(g => !closed.has(g.key)); gs.forEach(g => o ? closed.add(g.key) : closed.delete(g.key)); store.set("val-closed", [...closed]); renderGroups(); };
+  /** Under each field: result of a calculation ("629*4,69 = 2.950,01") and, on the phone, the change since the last valuation. */
+  const hint = (id, raw) => {
+    const el = $(`[data-hint="${id}"]`, groups); if (!el) return;
+    const v = draft.values[id] || 0, d = changeOf(id), isCalc = /\d\s*[-+*/×x:]\s*\d/.test(String(raw || "").replace(/^-/, ""));
+    el.innerHTML = (isCalc ? `<span class="h-calc">= ${fmtN.format(v)}</span>` : "") + (Math.abs(d) >= .005 && base ? `<span class="h-delta ${cls(d)}">${isCalc ? " · " : ""}${sEur(d)}</span>` : "");
+  };
   const updateTotals = only => {
     const t = total(draft), bt = total(base);
     $("#v-tot").textContent = eur(t);
@@ -2600,7 +2694,7 @@ function entryDialog(type, e, done) {
   src.addEventListener("input", () => { syncChips(); showLast(); });
   $("#e-emp-ch", dlg)?.addEventListener("click", () => { $("#e-emp", dlg).hidden = true; $("#e-src-f", dlg).hidden = false; src.focus(); src.select(); });
   showLast();
-  $("[data-del]", dlg)?.addEventListener("click", () => { DB.income.entries = DB.income.entries.filter(x => x !== e); save(true); dlg.close(); toast("Eintrag gelöscht"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(DB.income.entries, e, "Eintrag gelöscht", done); done(); });
   const commit = keepOpen => {
     const a = parseNum(amt.value), d = $("#e-d", dlg).value, so = src.value.trim();
     if (!okNum(a) || !a || !d) { amt.setAttribute("aria-invalid", "true"); amt.focus(); return; }
@@ -2761,7 +2855,7 @@ function orderDialog(o, done) {
   $("#o-e", dlg).addEventListener("keydown", e => { if (e.key !== "Enter") return; e.preventDefault(); const f = $('.p-row [data-f="' + (rows[0]?.code ? "food" : "code") + '"]', box); f ? f.focus() : $("#o-v", dlg).focus(); });
   if (!rows.length) rows.push({code: "", food: null});
   drawRows();
-  $("[data-del]", dlg)?.addEventListener("click", () => { DB.income.orders = DB.income.orders.filter(x => x !== o); save(true); dlg.close(); toast("Bestellung gelöscht"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(DB.income.orders, o, "Bestellung gelöscht", done); done(); });
   $("#of", dlg).onsubmit = ev => {
     ev.preventDefault();
     const r = read(), c = orderCalc(r);
@@ -3039,7 +3133,7 @@ function dealDialog(x, done) {
   const calc = () => { const r = read(); $("#x-calc", dlg).innerHTML = r.sellPrice == null ? `<div class="r"><span>Noch nicht verkauft</span><span class="num">${eur(r.buyPrice)} gebunden</span></div>` :
     `<div class="r"><span>Verkauf − Einkauf − Kosten</span><span class="num">${eur(r.sellPrice)} − ${eur(r.buyPrice)} − ${eur(r.fees)}</span></div><div class="r total"><span>Gewinn</span><span class="num ${cls(dealProfit(r))}">${sEur(dealProfit(r))}</span></div>`; };
   $$("input", dlg).forEach(i => i.addEventListener("input", calc)); calc();
-  $("[data-del]", dlg)?.addEventListener("click", () => { DB.income.deals = DB.income.deals.filter(z => z !== x); save(true); dlg.close(); toast("Deal gelöscht"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(DB.income.deals, x, "Deal gelöscht", done); done(); });
   $("#df", dlg).onsubmit = ev => {
     ev.preventDefault();
     const r = read(); if (!r.item) return;
@@ -3614,16 +3708,14 @@ function openDlg(html, wide) {
   }
 }
 dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
-/** Removes a platform area. With history it is archived (valuations stay complete), otherwise deleted. */
-function removeArea(a, after) {
-  const used = DB.snapshots.some(s => s.values[a.id] != null), n = a.holdings.length;
-  confirmDialog(`${catLabel(a.cat)} bei ${a.provider || a.name} entfernen?`,
-    used ? `Der Bereich kommt in früheren Bewertungen vor. Er wird archiviert: Dein Verlauf bleibt vollständig, in neuen Bewertungen und Übersichten taucht er nicht mehr auf. Zurückholen kannst du ihn unter Konten → „Inkl. archiviert“.`
-      : `Der Bereich${n ? ` mit ${n} Position${n === 1 ? "" : "en"}` : ""} wird gelöscht.`,
-    used ? "Archivieren" : "Entfernen", () => {
-      if (used) a.archived = true; else DB.accounts = DB.accounts.filter(x => x !== a);
-      save(true); toast(`${catLabel(a.cat)} bei ${a.provider || a.name} ${used ? "archiviert" : "entfernt"}`); after();
-    });
+/** Removes a platform category at once – archived when it has history (valuations stay complete), otherwise deleted. Undo restores it. */
+function removeArea(a, after, onUndo = () => go(true)) {
+  const used = DB.snapshots.some(s => s.values[a.id] != null), name = `${catLabel(a.cat)} bei ${a.provider || a.name}`;
+  if (used) {
+    a.archived = true; save(true); after();
+    toast(`${name} archiviert – Verlauf bleibt erhalten`, {undo: () => { a.archived = false; save(true); onUndo(); toast("Wiederhergestellt"); }});
+  } else { const i = DB.accounts.indexOf(a); DB.accounts.splice(i, 1); save(true); after();
+    toast(`${name} entfernt`, {undo: () => { DB.accounts.splice(Math.min(i, DB.accounts.length), 0, a); save(true); onUndo(); toast("Wiederhergestellt"); }}); }
 }
 function confirmDialog(title, text, cta, onOk, danger = true) {
   openDlg(`<div class="dlg-h"><h2>${esc(title)}</h2></div><div class="dlg-b"><p style="margin:0" class="sub">${esc(text)}</p></div>
@@ -3656,7 +3748,7 @@ function accountDialog(acc, done) {
   });
   const prevLogo = () => { $("#a-logo", dlg).innerHTML = accLogo({...a, name: $("#a-name", dlg).value, provider: $("#a-prov", dlg).value, cat: $("#a-cat", dlg).value, domain: cleanDomain($("#a-dom", dlg).value)}); $("#a-dom", dlg).placeholder = guessDomain($("#a-prov", dlg).value || $("#a-name", dlg).value) || "z. B. flatex.at"; };
   ["#a-name", "#a-prov", "#a-dom"].forEach(sel => $(sel, dlg).addEventListener("input", debounce(prevLogo, 300))); $("#a-cat", dlg).onchange = prevLogo;
-  $("[data-del]", dlg)?.addEventListener("click", () => { DB.accounts = DB.accounts.filter(x => x.id !== acc.id); save(true); dlg.close(); toast("Konto gelöscht"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(DB.accounts, acc, "Konto gelöscht", done); done(); });
   $("#af", dlg).onsubmit = e => {
     e.preventDefault();
     a.name = $("#a-name", dlg).value.trim(); if (!a.name) return;
@@ -3701,7 +3793,7 @@ function platformDialog(key, done = () => go(true), focusId) {
   $("#pl-imp", dlg).onclick = () => importDepotDialog(() => { done(); setTimeout(back, 30); }, (accs.find(a => a.id === focusId && ["wertpapiere", "edelmetalle"].includes(a.cat)) || accs.find(a => a.cat === "wertpapiere"))?.id);
   $$("[data-pdel]", dlg).forEach(b => b.onclick = () => {
     const a = accById(b.dataset.pdel);
-    removeArea(a, () => { done(); if (platByKey(key)?.accs.some(x => !x.archived)) setTimeout(() => platformDialog(key, done), 30); });
+    removeArea(a, () => { done(); if (platByKey(key)?.accs.some(x => !x.archived)) platformDialog(key, done); else dlg.close(); }, () => { done(); if (dlg.open) platformDialog(key, done); });
   });
   $$("[data-pm]", dlg).forEach(b => b.onclick = () => {
     const a = accById(b.dataset.pm), live = b.dataset.m === "live";
@@ -3740,7 +3832,7 @@ function cashDialog(acc, h, done, preset = {}) {
       <div id="c-msg"></div></div>
     <div class="dlg-f">${!isNew ? '<button class="btn danger" type="button" data-del>Entfernen</button>' : "<span></span>"}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button>${isNew ? '<button class="btn" type="button" id="c-next">Speichern & weitere</button>' : ""}<button class="btn primary" type="submit">Speichern</button></div></div></form>`);
   dlg.onclose = preset.back ? () => { dlg.onclose = null; setTimeout(preset.back, 30); } : null;
-  $("[data-del]", dlg)?.addEventListener("click", () => { acc.holdings = acc.holdings.filter(x => x.id !== h.id); save(true); dlg.close(); toast("Asset entfernt"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(acc.holdings, h, `${h.name || "Position"} entfernt`, done); done(); });
   $("#c-n", dlg).addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); $("#c-a", dlg).focus(); } });
   $("#c-next", dlg)?.addEventListener("click", () => { chain = true; $("#cf", dlg).requestSubmit(); chain = false; });
   $("#cf", dlg).onsubmit = e => {
@@ -3872,7 +3964,7 @@ function holdingDialog(acc, h, done, preset) {
   if (!isNew) { check(); $("#h-sym", dlg).dataset.named = "1"; }
   else if (preset && (preset.symbol || preset.type === "metal")) check();
   if (preset?.chain) $("#h-chain", dlg).value = preset.chain;
-  $("[data-del]", dlg)?.addEventListener("click", () => { acc.holdings = acc.holdings.filter(x => x.id !== h.id); save(true); dlg.close(); toast("Position entfernt"); done(); });
+  $("[data-del]", dlg)?.addEventListener("click", () => { dlg.close(); removeWithUndo(acc.holdings, h, `${h.name || h.symbol || "Position"} entfernt`, done); done(); refreshQuotes(true); });
   $("#hf", dlg).onsubmit = e => {
     e.preventDefault();
     const item = collect(); const px = $("#h-px", dlg);

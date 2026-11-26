@@ -81,14 +81,18 @@ test("Kategorien wieder entfernen: neu angelegte löschen, mit Verlauf archivier
   await bank.locator('[data-newcat="krypto"]').click();
   const id = await page.evaluate(() => DB.accounts.find(a => a.provider === "Demobank" && a.cat === "krypto").id);
   await page.click(`[data-vrm="${id}"]`);
-  await expect(page.locator("dialog")).toContainText("wird gelöscht");
-  await page.click("dialog [data-ok]");
+  await expect(page.locator(".toast")).toContainText("entfernt");
   await expect(page.locator(`input[data-acc="${id}"]`)).toHaveCount(0);
   expect(await page.evaluate(id => !!accById(id), id)).toBe(false);
   // an area with history → archived, history stays
+  // undo brings it back with the typed value, then remove for real
+  await page.fill('input[data-acc="tagesgeld"]', "28.000");
   await page.click('[data-vrm="tagesgeld"]');
-  await expect(page.locator("dialog")).toContainText("archiviert");
-  await page.click("dialog [data-ok]");
+  await expect(page.locator(".toast")).toContainText("archiviert");
+  await page.click(".toast-undo");
+  await expect(page.locator('input[data-acc="tagesgeld"]')).toHaveValue("28.000,00");
+  expect(await page.evaluate(() => accById("tagesgeld").archived)).toBe(false);
+  await page.click('[data-vrm="tagesgeld"]');
   await expect(page.locator('input[data-acc="tagesgeld"]')).toHaveCount(0);
   expect(await page.evaluate(() => [accById("tagesgeld").archived, DB.snapshots.at(-1).values.tagesgeld])).toEqual([true, 27200]);
   // the sum of the new valuation no longer contains it
@@ -101,8 +105,36 @@ test("Kontoseite: Bereich entfernen", async ({page}) => {
   await openWithDemo(page);
   await page.evaluate(() => { DB.accounts.push({id: "tb-a", name: "Testbroker", provider: "Testbroker", cat: "wertpapiere", holdings: [], archived: false}, {id: "tb-b", name: "Testbroker", provider: "Testbroker", cat: "bargeld", holdings: [], archived: false}); save(true); platformDialog("testbroker"); });
   await page.click('[data-pdel="tb-b"]');
-  await page.click("dialog [data-ok]");
+  await expect(page.locator(".toast")).toContainText("entfernt");
   await expect(page.locator("dialog h2")).toContainText("Testbroker");
   await expect(page.locator('[data-sec="tb-b"]')).toHaveCount(0);
   await expect(page.locator('[data-sec="tb-a"]')).toBeVisible();
+});
+
+test("Geführter Monatsabschluss: nur Händisches, Schritt für Schritt, Zusammenfassung", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.goto("./#bewertung");
+  await page.click('#v-mode [data-v="guided"]');
+  // gold coins are live → not a step; all other demo platforms are manual
+  await expect(page.locator(".g-prog")).toContainText("Schritt 1 von");
+  await expect(page.locator(".g-prog")).toContainText("automatisch ✓");
+  const steps = await page.evaluate(() => +document.querySelector(".g-prog").textContent.match(/von (\d+)/)[1]);
+  // step 1 = largest platform (Demobroker); a calculation shows its result
+  await expect(page.locator(".g-step")).toContainText("Demobroker");
+  await page.fill('input[data-acc="depot"]', "38000+250");
+  await expect(page.locator('[data-hint="depot"]')).toContainText("= 38.250,00");
+  // Enter on the last field goes to the next step
+  await page.locator('input[data-acc="depot"]').press("Enter");
+  await expect(page.locator(".g-prog")).toContainText("Schritt 2 von");
+  await expect(page.locator(".g-step")).toContainText("Demobank");
+  // back keeps the typed value
+  await page.click("#g-back");
+  await expect(page.locator('input[data-acc="depot"]')).toHaveValue("38.250,00");
+  for (let i = 0; i < steps; i++) await page.click("#g-next");
+  await expect(page.locator(".g-sum")).toContainText("Größte Veränderungen");
+  await expect(page.locator(".g-sum")).toContainText("+€ 150");
+  await expect(page.locator(".g-sum")).toContainText("Automatisch bewertet");
+  await page.click("#g-save");
+  expect(await page.evaluate(() => latest().values.depot)).toBe(38250);
+  expect(errors).toEqual([]);
 });

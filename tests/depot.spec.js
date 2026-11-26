@@ -104,3 +104,15 @@ test("Depot einfügen: Beträge (auch USD) und Krypto, neue Plattform wird angel
     ["liquiditaet", [["Festgeld 5 %", 1000.5, "EUR", 1000.5], ["Dollar-Konto", 108.7, "USD", 100]]],
   ]);
 });
+
+test("Position entfernen und mit „Rückgängig“ zurückholen", async ({page}) => {
+  await openWithDemo(page);
+  await page.goto("./#depot");
+  await page.locator('.h-row[data-h="hgold"]').first().click();
+  await page.click("dialog [data-del]");
+  await expect(page.locator(".toast")).toContainText("entfernt");
+  expect(await page.evaluate(() => accById("gold").holdings.length)).toBe(0);
+  await page.click(".toast-undo");
+  expect(await page.evaluate(() => accById("gold").holdings.map(h => h.id))).toEqual(["hgold"]);
+  await expect(page.locator('.h-row[data-h="hgold"]').first()).toBeVisible();
+});

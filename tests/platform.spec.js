@@ -101,6 +101,7 @@ test("Konto anklicken → Assets nach Kategorie erfassen (Betrag, Schuld)", asyn
   // a valuation picks the amounts up; typing a value updates a single amount
   await page.keyboard.press("Escape");
   await page.goto("./#bewertung");
+  await page.click('#v-mode [data-v="plat"]');
   await expect(page.locator('input[data-acc="tb-cash"]')).toHaveValue("1.350,50");
   expect(errors).toEqual([]);
 });
