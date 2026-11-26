@@ -50,3 +50,23 @@ test("Bewertung nach Kategorie bleibt möglich, Gruppen klappen", async ({page})
   await page.click("#v-all");
   await expect(page.locator('input[data-acc="giro"]')).toBeVisible();
 });
+
+test("Pro Bereich wählen: Betrag eintragen oder Live aus Positionen", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.goto("./#bewertung");
+  await page.click('#v-mode [data-v="plat"]');
+  // gold coins: live from the position → switch to a typed amount
+  await page.click('[data-vm="gold"][data-m="amount"]');
+  expect(await page.evaluate(() => [accById("gold").manual, isLive(accById("gold"))])).toEqual([true, false]);
+  await expect(page.locator('input[data-acc="gold"]')).toBeFocused();
+  await page.keyboard.type("2.500");
+  await expect(page.locator('[data-vm="gold"][data-m="live"]')).toContainText("Live · 1");
+  // and back to live
+  await page.click('[data-vm="gold"][data-m="live"]');
+  expect(await page.evaluate(() => isLive(accById("gold")))).toBe(true);
+  // an account without positions: "Live" opens the account page to add them
+  await page.click('[data-vm="depot"][data-m="live"]');
+  await expect(page.locator("dialog h2")).toContainText("Depot Demo");
+  await page.keyboard.press("Escape");
+  expect(errors).toEqual([]);
+});
