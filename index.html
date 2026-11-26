@@ -526,6 +526,7 @@ dialog.palette{width:min(640px,calc(100vw - 32px));margin-top:12vh;margin-bottom
 .stat{padding:14px 16px;border:1px solid var(--line);border-radius:var(--r-s);display:grid;gap:2px;min-width:0}
 .stat b{font-size:19px;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .stat span{font-size:12.5px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#lf-free .stat span{white-space:normal}
 @media (max-width: 760px){ .p-row{grid-template-columns:80px minmax(0,1fr) 36px} .p-row [data-rm]{order:3} .p-row .p-owes{order:4;grid-column:1/-1;text-align:left;margin-top:-4px} .row3.nums{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px} .row3.nums label{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} .row4{grid-template-columns:1fr 1fr;gap:10px} .stat-grid{grid-template-columns:1fr 1fr} .msg-line{grid-template-columns:auto minmax(0,1fr)} .msg-line .btn{grid-column:1/-1} }
 
 /* ---------- responsive ---------- */
@@ -2705,6 +2706,8 @@ const orderCalc = o => {
   const fromColleagues = ps.some(x => x.amount != null) ? owes.reduce((a, b) => a + b, 0) : B - E, cost = B * (1 - d);
   return {B, E, d, fee: 0, feeShare: 0, owes, myShare: E, fromColleagues, cost, profit: fromColleagues - (cost - E * (1 - d)), saving: E * d};
 };
+/** Free food: what the voucher discount and the colleagues' full-price payments cover of your own meal. */
+const freeFood = c => { const own = c.myShare || 0, paid = Math.max(0, (c.cost || 0) - (c.fromColleagues || 0)); return {own, paid: Math.min(paid, own), free: Math.max(0, own - paid), surplus: Math.max(0, (c.fromColleagues || 0) - (c.cost || 0))}; };
 const eurPlain = v => fmtN.format(v || 0) + " €";
 const payText = (amount, restaurant) => `Bitte ${eurPlain(amount)} überweisen${restaurant ? ` (${restaurant})` : ""}`;
 /** Everything colleagues still owe: [{code, items: [{o, i, amount}], sum}] */
@@ -3235,6 +3238,7 @@ VIEWS.lieferando = v => {
       <div class="card"><div class="card-h"><h2>Offene Zahlungen</h2><span class="muted" style="font-size:12.5px" id="lf-open-sum"></span></div><div class="card-b" id="lf-open"></div></div>
       <div class="card"><div class="card-h"><h2>Letzte Bestellungen</h2><button class="btn ghost sm" type="button" id="lf-rest">Restaurants & Logos</button></div><div class="card-b" id="lf-orders" style="padding-top:8px"></div></div>
     </section>
+    <section class="card" id="lf-free-card"><div class="card-h"><h2>Gratis gegessen</h2><span class="muted" style="font-size:12.5px">nur für dich sichtbar</span></div><div class="card-b" id="lf-free"></div></section>
     <section class="card"><div class="card-h"><h2>Statistik</h2><div class="actions"><div class="seg" id="lf-period"><button type="button" data-v="month">Dieser Monat</button><button type="button" data-v="year">Dieses Jahr</button><button type="button" data-v="all">Gesamt</button></div></div></div>
       <div class="card-b" id="lf-stats"></div></section>`;
   const render = () => {
@@ -3270,6 +3274,23 @@ VIEWS.lieferando = v => {
     // stats
     $$("#lf-period button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === lfPeriod));
     const sel = orders.filter(o => lfPeriod === "all" || (lfPeriod === "year" ? o.date.slice(0, 4) === now.slice(0, 4) : monthOf(o.date) === M));
+    // free food (private, never part of the shared statistics)
+    {
+      const ff = sel.map(o => freeFood(orderCalc(o))), F = ff.reduce((t, x) => t + x.free, 0), own = ff.reduce((t, x) => t + x.own, 0), paid = ff.reduce((t, x) => t + x.paid, 0), surplus = ff.reduce((t, x) => t + x.surplus, 0);
+      const full = ff.filter(x => x.own > 0 && x.paid < .005).length;
+      const byM = {}; orders.forEach(o => { const k = monthOf(o.date); byM[k] = (byM[k] || 0) + freeFood(orderCalc(o)).free; });
+      const ms = Object.keys(byM).sort().slice(-6), mx = Math.max(...ms.map(k => byM[k]), 1);
+      const mShort = k => parseD(k + "-01").toLocaleDateString(LOCALE, {month: "short", year: "2-digit"});
+      const per = lfPeriod === "all" ? "insgesamt" : lfPeriod === "year" ? "in " + now.slice(0, 4) : "im " + monthLabel(M).split(" ")[0];
+      $("#lf-free").innerHTML = !sel.length ? `<p class="muted" style="margin:0">Noch keine Bestellungen in diesem Zeitraum (Zeitraum unten bei der Statistik wählen).</p>` : `<div class="stat-grid">
+          <div class="stat"><span>Essen gratis ${per}</span><b class="num pos" data-free>${eur(F)}</b><span>${own ? fmtPs.format(F / own) : "–"} deines eigenen Essens</span></div>
+          <div class="stat"><span>Dein Essen im Wert von</span><b class="num">${eur(own)}</b><span>inkl. deinem Anteil an den Gebühren</span></div>
+          <div class="stat"><span>Selbst bezahlt</span><b class="num" data-paid>${eur(paid)}</b><span>${full} von ${ff.length} Bestellung${ff.length === 1 ? "" : "en"} komplett gratis</span></div>
+          ${surplus >= .005 ? `<div class="stat"><span>Darüber hinaus verdient</span><b class="num">${eur(surplus)}</b><span>mehr, als dein Essen gekostet hat</span></div>` : ""}
+        </div>
+        ${ms.length > 1 ? `<div style="margin-top:16px"><div class="eyebrow" style="margin-bottom:8px">Gratis-Essen pro Monat</div>${ms.map(k => `<div class="bar-row" style="grid-template-columns:64px minmax(0,1fr) auto"><span class="muted">${esc(mShort(k))}</span><span class="bar-track"><span class="bar-fill" style="width:${byM[k] / mx * 100}%;background:var(--pos)"></span></span><span class="num">${eur(byM[k])}</span></div>`).join("")}</div>` : ""}
+        <p class="hint" style="margin:12px 0 0">So gerechnet: Du zahlst mit vergünstigten Gutscheinen, deine Kollegen zahlen den vollen Preis. Was dabei übrig bleibt, deckt dein eigenes Essen – dieser Teil ist gratis. Es ist dasselbe Geld wie der „Gewinn“, nur anders betrachtet.</p>`;
+    }
     const st = lfStats(sel), plabel = lfPeriod === "all" ? "Gesamt" : lfPeriod === "year" ? now.slice(0, 4) : monthLabel(M);
     if (!st) { $("#lf-stats").innerHTML = `<p class="muted" style="margin:0">Noch keine Bestellungen in diesem Zeitraum.</p>`; return; }
     const maxR = Math.max(...st.restaurants.map(r => r.n)), maxW = Math.max(...st.weekdays, 1), maxP = Math.max(...st.people.map(p => p.n), 1);
@@ -4453,7 +4474,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v31";
+const APP_VERSION = "tracky-v32";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
