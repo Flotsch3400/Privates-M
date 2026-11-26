@@ -70,3 +70,39 @@ test("Pro Bereich wählen: Betrag eintragen oder Live aus Positionen", async ({p
   await page.keyboard.press("Escape");
   expect(errors).toEqual([]);
 });
+
+test("Kategorien wieder entfernen: neu angelegte löschen, mit Verlauf archivieren", async ({page}) => {
+  const errors = await openWithDemo(page);
+  await page.goto("./#bewertung");
+  await page.click('#v-mode [data-v="plat"]');
+  const bank = page.locator('.val-group[data-g="p:demobank"]');
+  // add a category and remove it again → deleted completely
+  await bank.locator("[data-addcat]").click();
+  await bank.locator('[data-newcat="krypto"]').click();
+  const id = await page.evaluate(() => DB.accounts.find(a => a.provider === "Demobank" && a.cat === "krypto").id);
+  await page.click(`[data-vrm="${id}"]`);
+  await expect(page.locator("dialog")).toContainText("wird gelöscht");
+  await page.click("dialog [data-ok]");
+  await expect(page.locator(`input[data-acc="${id}"]`)).toHaveCount(0);
+  expect(await page.evaluate(id => !!accById(id), id)).toBe(false);
+  // an area with history → archived, history stays
+  await page.click('[data-vrm="tagesgeld"]');
+  await expect(page.locator("dialog")).toContainText("archiviert");
+  await page.click("dialog [data-ok]");
+  await expect(page.locator('input[data-acc="tagesgeld"]')).toHaveCount(0);
+  expect(await page.evaluate(() => [accById("tagesgeld").archived, DB.snapshots.at(-1).values.tagesgeld])).toEqual([true, 27200]);
+  // the sum of the new valuation no longer contains it
+  await page.click("#v-save");
+  expect(await page.evaluate(() => latest().values.tagesgeld)).toBeUndefined();
+  expect(errors).toEqual([]);
+});
+
+test("Kontoseite: Bereich entfernen", async ({page}) => {
+  await openWithDemo(page);
+  await page.evaluate(() => { DB.accounts.push({id: "tb-a", name: "Testbroker", provider: "Testbroker", cat: "wertpapiere", holdings: [], archived: false}, {id: "tb-b", name: "Testbroker", provider: "Testbroker", cat: "bargeld", holdings: [], archived: false}); save(true); platformDialog("testbroker"); });
+  await page.click('[data-pdel="tb-b"]');
+  await page.click("dialog [data-ok]");
+  await expect(page.locator("dialog h2")).toContainText("Testbroker");
+  await expect(page.locator('[data-sec="tb-b"]')).toHaveCount(0);
+  await expect(page.locator('[data-sec="tb-a"]')).toBeVisible();
+});

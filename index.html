@@ -269,6 +269,10 @@ tr.acc td:first-child{padding-left:44px;color:var(--ink-2)}
 .val-group{overflow:hidden}
 .v-addcat{padding:4px 14px 12px}
 .seg.mini{padding:2px;border-radius:8px;margin-top:4px;display:inline-flex}
+.v-tools{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.v-rm{width:30px!important;height:30px!important;margin-top:4px;color:var(--ink-3)}
+.v-rm:hover{color:var(--neg)}
+.v-rm .ic{width:15px;height:15px}
 .seg.mini button{height:24px;padding:0 9px;font-size:11.5px;border-radius:6px}
 .vrow .nm small{white-space:normal}
 .v-catpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding-top:8px}
@@ -2011,7 +2015,7 @@ VIEWS.bewertung = v => {
     const sub = [inPlat && a.name !== platOf(a).name ? esc(a.name) : "",
       live ? `${a.holdings.length} Position${a.holdings.length > 1 ? "en" : ""} · ${l?.fresh ? '<span class="pos">Live-Kurs</span>' : l ? "letzter bekannter Kurs" : "kein Kurs"}${gap ? ' · <span class="neg">deutlich weniger als zuletzt – fehlen Positionen?</span>' : ""}` : ""].filter(Boolean).join(" · ");
     return `<div class="vrow"><span class="nm with-logo">${inPlat ? catChip(a.cat) : accLogo(a)}<span><b>${esc(inPlat ? catLabel(a.cat) : a.name)}</b>${sub ? `<small>${sub}</small>` : ""}
-        <span class="seg mini" role="group" aria-label="Wie erfassen?"><button type="button" data-vm="${a.id}" data-m="amount" aria-pressed="${!live}" title="Einen Betrag eintragen">Betrag</button><button type="button" data-vm="${a.id}" data-m="live" aria-pressed="${live}" title="Einzelne Positionen mit Live-Kurs">Live${a.holdings.length && !live ? ` · ${a.holdings.length}` : ""}</button></span></span></span>
+        <span class="v-tools"><span class="seg mini" role="group" aria-label="Wie erfassen?"><button type="button" data-vm="${a.id}" data-m="amount" aria-pressed="${!live}" title="Einen Betrag eintragen">Betrag</button><button type="button" data-vm="${a.id}" data-m="live" aria-pressed="${live}" title="Einzelne Positionen mit Live-Kurs">Live${a.holdings.length && !live ? ` · ${a.holdings.length}` : ""}</button></span><button class="btn ghost sm icon v-rm" type="button" data-vrm="${a.id}" aria-label="${esc(catLabel(a.cat))} bei ${esc(a.provider || a.name)} entfernen" title="Entfernen">${I.trash}</button></span></span></span>
       <span class="prev num">${prev != null ? eur(prev) : "–"}</span>
       <input class="input n" inputmode="decimal" enterkeyhint="next" data-acc="${a.id}" aria-label="Wert ${esc(a.name)} ${esc(catLabel(a.cat))}" value="${fmtN.format(draft.values[a.id] ?? 0)}">
       <span class="delta num" data-delta="${a.id}"></span></div>`;
@@ -2062,6 +2066,10 @@ VIEWS.bewertung = v => {
       delete a.manual; save(true);
       if (a.holdings.length) { refresh(); refreshQuotes(true).then(refresh); toast(`${a.name} · ${catLabel(a.cat)}: Live aus ${a.holdings.length} Position${a.holdings.length === 1 ? "" : "en"}`); }
       else { renderGroups(); platformDialog(platKey(a), () => { refresh(); refreshQuotes(true).then(refresh); }, a.id); toast("Füge die einzelnen Positionen hinzu – der Wert kommt dann live."); }
+    });
+    $$("[data-vrm]", groups).forEach(b => b.onclick = () => {
+      const a = accById(b.dataset.vrm);
+      removeArea(a, () => { const i = accounts.indexOf(a); if (i >= 0) accounts.splice(i, 1); delete draft.values[a.id]; delete draft.detail[a.id]; renderGroups(); });
     });
     $$("[data-addcat]", groups).forEach(b => b.onclick = () => { const f = b.nextElementSibling, o = !f.classList.contains("open"); f.classList.toggle("open", o); b.setAttribute("aria-expanded", o); });
     $$("[data-newcat]", groups).forEach(b => b.onclick = () => {
@@ -3606,6 +3614,17 @@ function openDlg(html, wide) {
   }
 }
 dlg.addEventListener("click", e => { if (e.target === dlg) dlg.close(); });
+/** Removes a platform area. With history it is archived (valuations stay complete), otherwise deleted. */
+function removeArea(a, after) {
+  const used = DB.snapshots.some(s => s.values[a.id] != null), n = a.holdings.length;
+  confirmDialog(`${catLabel(a.cat)} bei ${a.provider || a.name} entfernen?`,
+    used ? `Der Bereich kommt in früheren Bewertungen vor. Er wird archiviert: Dein Verlauf bleibt vollständig, in neuen Bewertungen und Übersichten taucht er nicht mehr auf. Zurückholen kannst du ihn unter Konten → „Inkl. archiviert“.`
+      : `Der Bereich${n ? ` mit ${n} Position${n === 1 ? "" : "en"}` : ""} wird gelöscht.`,
+    used ? "Archivieren" : "Entfernen", () => {
+      if (used) a.archived = true; else DB.accounts = DB.accounts.filter(x => x !== a);
+      save(true); toast(`${catLabel(a.cat)} bei ${a.provider || a.name} ${used ? "archiviert" : "entfernt"}`); after();
+    });
+}
 function confirmDialog(title, text, cta, onOk, danger = true) {
   openDlg(`<div class="dlg-h"><h2>${esc(title)}</h2></div><div class="dlg-b"><p style="margin:0" class="sub">${esc(text)}</p></div>
     <div class="dlg-f"><div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn ${danger ? "danger" : "primary"}" type="button" data-ok>${esc(cta)}</button></div></div>`);
@@ -3672,7 +3691,7 @@ function platformDialog(key, done = () => go(true), focusId) {
         <p class="hint" style="margin:6px 0 2px">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jedes Asset landet im passenden Bereich, fehlende Bereiche legt Tracky an.</p></div></div></div>
       ${accs.map(a => `<div class="plat-sec" data-sec="${a.id}">
         <div class="plat-h"><button class="sec-tog" type="button" data-stog="${a.id}" aria-expanded="${secOpen(a)}" ${a.holdings.length ? "" : 'tabindex="-1" style="cursor:default"'}>${a.holdings.length ? I.chev : ""}${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}${a.holdings.length ? `<span class="muted" style="font-weight:500;font-size:12.5px;white-space:nowrap">${a.holdings.length}</span>` : ""}</button>
-          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a)}">Live</button></span><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button></span></div>
+          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a)}">Live</button></span><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button>${a.archived ? "" : `<button class="btn ghost sm icon v-rm" type="button" data-pdel="${a.id}" style="margin:0" aria-label="${esc(catLabel(a.cat))} entfernen" title="Bereich entfernen">${I.trash}</button>`}</span></div>
         <div class="fold ${secOpen(a) ? "open" : ""}" data-sfold="${a.id}"><div>${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}</div></div>
         ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen unter Konten mit dem Schalter.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
         <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
@@ -3680,6 +3699,10 @@ function platformDialog(key, done = () => go(true), focusId) {
     </div>
     <div class="dlg-f"><button class="btn" type="button" id="pl-imp">${I.paste} Depot einfügen</button><div class="r"><button class="btn primary" type="button" data-x>Fertig</button></div></div>`);
   $("#pl-imp", dlg).onclick = () => importDepotDialog(() => { done(); setTimeout(back, 30); }, (accs.find(a => a.id === focusId && ["wertpapiere", "edelmetalle"].includes(a.cat)) || accs.find(a => a.cat === "wertpapiere"))?.id);
+  $$("[data-pdel]", dlg).forEach(b => b.onclick = () => {
+    const a = accById(b.dataset.pdel);
+    removeArea(a, () => { done(); if (platByKey(key)?.accs.some(x => !x.archived)) setTimeout(() => platformDialog(key, done), 30); });
+  });
   $$("[data-pm]", dlg).forEach(b => b.onclick = () => {
     const a = accById(b.dataset.pm), live = b.dataset.m === "live";
     if (live === isLive(a)) return;
@@ -4043,7 +4066,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v27";
+const APP_VERSION = "tracky-v28";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
