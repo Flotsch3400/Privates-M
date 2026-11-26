@@ -1513,9 +1513,9 @@ function issuesDialog() {
   openDlg(`<div class="dlg-h"><h2>Fehlende Kurse</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b" style="display:grid;gap:10px">${list.length ? `<p class="sub" style="margin:0">Für diese Positionen hat Tracky gerade keinen aktuellen Kurs gefunden. Öffne eine Position und such sie neu (bei Aktien und ETFs am besten per ISIN oder WKN) – dann klappt es in der Regel.</p>
       <div>${list.map(r => `<div class="plat-row" data-ih="${r.h.id}" data-ia="${r.a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(r.h)}<span><b>${esc(r.h.name || r.h.symbol)}</b><small>${esc(r.a.name)} · ${esc(r.err)} · ${when(r)}</small></span></span><span class="btn sm">Beheben</span></div>`).join("")}</div>`
-      : '<div class="msg info">Alle Positionen haben einen aktuellen Kurs.</div>'}</div>
+      : emptyAnim("check", "Alle Positionen haben einen aktuellen Kurs.", 96, false)}</div>
     <div class="dlg-f"><button class="btn" type="button" id="pi-retry">${I.refresh} Erneut laden</button><div class="r"><button class="btn primary" type="button" data-x>Schließen</button></div></div>`);
-  dlg.onclose = null;
+  dlg.onclose = null; playEmpties(dlg);
   const back = () => (quoteBusy || Promise.resolve()).then(() => { if (!dlg.open) issuesDialog(); });
   $$("[data-ih]", dlg).forEach(r => { const f = () => { const a = accById(r.dataset.ia); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.ih), () => onQuotes(), {back}); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
   $("#pi-retry", dlg).onclick = async e => { e.currentTarget.classList.add("spin"); await refreshQuotes(true); issuesDialog(); };
@@ -1530,10 +1530,16 @@ const LOTTIE = {
   delivery: "https://assets-v2.lottiefiles.com/a/35cee736-1178-11ee-9ecf-eb1d30fa2871/BJd6Zw9cu0.json",
   emptybox: "https://assets-v2.lottiefiles.com/a/7a563e80-8c34-11ef-a643-cfcc7ccc38c7/vgWZ7sszOZ.json",
   coins: "https://assets-v2.lottiefiles.com/a/8a5259e6-f264-11ee-b43b-234b1170408d/tLLJZ49Fiq.json",
+  search: "https://assets-v2.lottiefiles.com/a/9c908366-116f-11ee-8e96-733183d88fb1/ZKHkR2pP6T.json",
+  wallet: "https://assets-v2.lottiefiles.com/a/49402422-f487-11ee-809f-b34573ed5a0a/mOZwQcNXrk.json",
+  sync: "https://assets-v2.lottiefiles.com/a/e3d4c8e0-116f-11ee-ba78-1b645940c700/6rNvF2fg0b.json",
+  thumbs: "https://assets-v2.lottiefiles.com/a/33427310-1151-11ee-96e0-eb41280d6bae/HkR3eVoyxe.json",
+  check: "https://assets-v2.lottiefiles.com/a/81556089-6f2e-40c0-a088-c24f68fa21b6/oDBqlaNG56.json",
+  dots: "https://assets-v2.lottiefiles.com/a/ca641c6c-1165-11ee-b8c1-23e1ecec47dd/qpZrl4YWwQ.json",
 };
 /** Empty state with a looping animation (falls back to text only). */
-const emptyAnim = (name, text, size = 130) => `<div class="empty empty-anim" style="display:grid;justify-items:center;gap:6px;padding:16px 0"><div data-lottie="${name}" style="width:${size}px;height:${size}px"></div><span>${text}</span></div>`;
-const playEmpties = root => $$("[data-lottie]", root).forEach(el => { if (!el.dataset.played) { el.dataset.played = 1; playLottie(el, el.dataset.lottie, true); } });
+const emptyAnim = (name, text, size = 130, loop = true) => `<div class="empty empty-anim" style="display:grid;justify-items:center;gap:6px;padding:16px 0"><div data-lottie="${name}" data-loop="${loop}" style="width:${size}px;height:${size}px"></div><span>${text}</span></div>`;
+const playEmpties = root => root && $$("[data-lottie]", root).forEach(el => { if (!el.dataset.played) { el.dataset.played = 1; playLottie(el, el.dataset.lottie, el.dataset.loop !== "false"); } });
 let lottieLib = null;
 function loadLottie() {
   if (lottieLib) return lottieLib;
@@ -1551,11 +1557,11 @@ async function playLottie(el, name, loop = false) {
   try { const lottie = await loadLottie(); lottie.loadAnimation({container: el, renderer: "svg", loop, autoplay: true, path: LOTTIE[name]}); return true; }
   catch { return false; }
 }
-async function celebrate(title, sub, big, fx = "confetti") {
+async function celebrate(title, sub, big, fx = "confetti", main = "success") {
   const wrap = document.createElement("div"); wrap.className = "celebrate"; wrap.setAttribute("role", "status");
   wrap.innerHTML = `${big ? '<div class="fx"></div>' : ""}<div class="box"><div class="anim"></div><b>${esc(title)}</b>${sub ? `<span class="muted">${esc(sub)}</span>` : ""}</div>`;
   document.body.append(wrap);
-  const ok = await playLottie($(".anim", wrap), "success");
+  const ok = await playLottie($(".anim", wrap), main);
   if (!ok) $(".anim", wrap).innerHTML = `<svg viewBox="0 0 120 120" width="120" height="120"><circle cx="60" cy="60" r="44" fill="var(--pos-bg)"/><path d="M40 61l14 14 27-29" stroke="var(--pos)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   if (big) playLottie($(".fx", wrap), fx);
   setTimeout(() => wrap.remove(), big ? 3600 : 2000);
@@ -1645,7 +1651,8 @@ function openSearch() {
     let g = "";
     $("#q-res", dlg).innerHTML = shown.length ? shown.map((it, i) => (it.group !== g ? `<div class="q-group">${g = it.group}</div>` : "") +
       `<button type="button" class="q-item" role="option" data-i="${i}" aria-selected="${i === sel}" tabindex="-1"><span class="q-ic">${it.icon}</span><span class="q-txt"><b>${esc(it.label)}</b><small>${esc(it.sub)}</small></span></button>`).join("")
-      : `<div class="empty" style="padding:24px">Nichts gefunden.</div>`;
+      : emptyAnim("search", "Nichts gefunden.", 110);
+    playEmpties($("#q-res", dlg));
     $$(".q-item", dlg).forEach(b => { b.onclick = () => shown[+b.dataset.i]?.run(); b.onmousemove = () => { if (sel !== +b.dataset.i) { sel = +b.dataset.i; paintSel(); } }; });
   };
   const paintSel = () => $$(".q-item", dlg).forEach(b => b.setAttribute("aria-selected", +b.dataset.i === sel));
@@ -2207,7 +2214,7 @@ function donutSVG(slices, totalV, centerLabel) {
 function catView(v, key) {
   const S = DB.snapshots, label = catLabel(key), color = catColor(key);
   const intro = key === "krypto" ? "Alle Coins, Wallets und Krypto-Börsen auf einen Blick." : "Alle Depots, Aktien, ETFs und Fonds auf einen Blick.";
-  if (!S.length) { v.innerHTML = `<div class="head"><div><h1>${esc(label)}</h1><p>${intro}</p></div></div><div class="card empty">Noch keine Bewertung vorhanden. <a class="link" href="#bewertung">Erste Bewertung erfassen</a></div>`; return; }
+  if (!S.length) { v.innerHTML = `<div class="head"><div><h1>${esc(label)}</h1><p>${intro}</p></div></div><div class="card empty" style="display:grid;justify-items:center;gap:8px"><div data-lottie="growth" style="width:140px;height:140px"></div>Noch keine Bewertung vorhanden. <a class="link" href="#bewertung">Erste Bewertung erfassen</a></div>`; playEmpties(v); return; }
   const L = latest(), P = S.at(-2), net = total(L);
   const at = s => s ? catTotals(s)[key] || 0 : null;
   const series = S.map(at), val = at(L), pv = at(P);
@@ -2504,14 +2511,14 @@ VIEWS.einkommen = v => {
         </div>`;
     }
     // chart
-    const drawChart = () => barChart($("#inc-chart"), last12, Object.entries(INC_TYPES).map(([k, t]) => ({key: k, label: t.label, color: t.color, values: last12.map(mo => all.filter(x => x.type === k && monthOf(x.date) === mo).reduce((a, x) => a + x.amount, 0))})));
+    const drawChart = () => !months12.some(Boolean) ? ($("#inc-chart").innerHTML = '<div class="empty" style="display:grid;place-items:center;height:100%">Noch keine Einträge in den letzten 12 Monaten.</div>') : barChart($("#inc-chart"), last12, Object.entries(INC_TYPES).map(([k, t]) => ({key: k, label: t.label, color: t.color, values: last12.map(mo => all.filter(x => x.type === k && monthOf(x.date) === mo).reduce((a, x) => a + x.amount, 0))})));
     drawChart(); resizeFns = [drawChart];
     // by type and by source
     const byType = sumBy(inM, x => x.type), bySrc = Object.entries(sumBy(inM, x => x.source)).sort((a, b) => b[1] - a[1]);
     const maxT = Math.max(...Object.values(byType).map(Math.abs), 1);
     $("#inc-types").innerHTML = inM.length ? Object.keys(INC_TYPES).filter(k => byType[k]).map(k => `<div class="bar-row" style="grid-template-columns:minmax(0,170px) minmax(0,1fr) auto"><span class="nm with-logo">${typeIc(k)}<span>${INC_TYPES[k].label}</span></span><span class="bar-track"><span class="bar-fill" style="width:${Math.abs(byType[k]) / maxT * 100}%;background:${INC_TYPES[k].color}"></span></span><b class="num">${eur(byType[k])}</b></div>`).join("") +
       `<div class="eyebrow" style="margin:16px 0 4px">Nach Quelle</div>` + bySrc.slice(0, 8).map(([n, a]) => `<div class="bar-row"><span class="nm with-logo">${sourceLogo(n)}<span>${esc(n || "–")}</span></span><span></span><span class="num">${eur(a)}</span></div>`).join("")
-      : `<div class="empty" style="padding:24px 0">Noch keine Einträge im ${monthLabel(M)}. Leg oben los.</div>`;
+      : emptyAnim("wallet", `Noch keine Einträge im ${monthLabel(M)}. Leg oben los.`, 110);
     // Lieferando
     const ords = DB.income.orders.filter(o => monthOf(o.date) === M).sort((a, b) => b.date.localeCompare(a.date));
     const oc = ords.map(orderCalc), oProfit = oc.reduce((t, x) => t + x.profit, 0), oSave = oc.reduce((t, x) => t + x.saving, 0), oTurn = oc.reduce((t, x) => t + x.B, 0);
@@ -2539,6 +2546,7 @@ VIEWS.einkommen = v => {
       <td style="white-space:normal">${x.kind === "order" ? `<span class="codes">${(x.ref.participants || []).map(z => `<span class="code ${z.paid ? "paid" : ""}">${esc(z.code)}</span>`).join("")}</span> <span class="muted">${eur(orderCalc(x.ref).B)}</span>` : esc(x.note)}</td>
       <td class="n ${cls(x.amount)}"><b>${sEur(x.amount)}</b></td></tr>`).join("") + `</tbody>`
       : `<tbody><tr><td class="muted">Keine Einträge.</td></tr></tbody>`;
+    playEmpties($("#view"));
     $$("#inc-list tr[data-i]").forEach(r => r.onclick = () => { const x = list[+r.dataset.i]; x.kind === "order" ? orderDialog(x.ref, render) : x.kind === "deal" ? dealDialog(x.ref, render) : entryDialog(x.ref.type, x.ref, render); });
   };
   $("#m-prev").onclick = () => { incMonth = shiftMonth(incMonth, -1); render(); };
@@ -2593,7 +2601,8 @@ function entryDialog(type, e, done) {
     if (isNew) DB.income.entries.push({id: "i" + uid(), ...rec}); else Object.assign(e, rec);
     if (isSal && so) S_.employer = so; rememberSource(type, so);
     incMonth = monthOf(d); save(true); done();
-    toast(`${t.label} ${so ? "von " + so + " " : ""}gespeichert · ${eur(rec.amount)}`);
+    if (isSal && isNew && !keepOpen) celebrate("Gehalt erfasst", `${so ? so + " · " : ""}${eur(rec.amount)}`, false, "confetti", "wallet");
+    else toast(`${t.label} ${so ? "von " + so + " " : ""}gespeichert · ${eur(rec.amount)}`);
     if (keepOpen) { amt.value = ""; $("#e-n", dlg).value = ""; src.value = ""; syncChips(); showLast(); src.focus(); }
     else dlg.close();
   };
@@ -2911,7 +2920,7 @@ VIEWS.lieferando = v => {
     $("#lf-open").innerHTML = debts.length ? debts.map(d => `<div class="debt"><div class="split"><span class="inl"><span class="code">${esc(d.code)}</span><b class="num">${eur(d.sum)}</b></span>
         <span class="actions"><button class="btn sm" type="button" data-remind="${esc(d.code)}">Text kopieren</button><button class="btn sm" type="button" data-allpaid="${esc(d.code)}">${d.items.length > 1 ? "Alles bezahlt" : "Bezahlt"}</button></span></div>
         ${d.items.map(x => `<label class="debt-item"><input type="checkbox" data-pay="${x.o.id}:${x.i}" aria-label="Bezahlt"><span>${esc(x.o.restaurant || "Lieferando")} <span class="muted">· ${fmtDate(x.o.date)}</span></span><span class="num">${eur(x.amount)}</span></label>`).join("")}</div>`).join("")
-      : `<div class="empty" style="padding:20px 0">Alle haben bezahlt.</div>`;
+      : emptyAnim("thumbs", "Alle haben bezahlt.", 84, false);
     const remindText = d => d.items.length === 1 ? payText(d.items[0].amount, d.items[0].o.restaurant) : `Bitte ${eurPlain(d.sum)} überweisen (${d.items.map(x => `${x.o.restaurant || "Lieferando"} ${parseD(x.o.date).toLocaleDateString(LOCALE, {day: "2-digit", month: "2-digit"})}`).join(", ")})`;
     $$("[data-remind]").forEach(b => b.onclick = () => copyText(remindText(debts.find(d => d.code === b.dataset.remind)), b));
     const markPaid = (o, i, val) => { const x = o.participants[i]; x.paid = val; if (val) x.paidAt = todayISO(); else delete x.paidAt; };
@@ -2923,7 +2932,7 @@ VIEWS.lieferando = v => {
         <span class="sub2"><span class="codes" style="display:inline-flex">${(o.participants || []).map(z => `<span class="code ${z.paid ? "paid" : ""}">${esc(z.code)}</span>`).join("")}</span></span><span class="sub2 r">${fmtDate(o.date)} · <button class="btn ghost sm" type="button" data-texts="${o.id}" style="height:22px;padding:0 6px">Texte</button></span></div>`; }).join("")
       : emptyAnim("delivery", "Noch keine Bestellungen. Leg mit „Neue Bestellung“ los.");
     $("#lf-rest").onclick = () => restDialog(render);
-    playEmpties($("#lf-orders"));
+    playEmpties($("#lf-orders")); playEmpties($("#lf-open"));
     $$("#lf-orders [data-o]").forEach(r => r.onclick = e => { if (e.target.closest("[data-texts]")) return; orderDialog(orders.find(o => o.id === r.dataset.o), render); });
     $$("[data-texts]").forEach(b => b.onclick = () => messagesDialog(orders.find(o => o.id === b.dataset.texts), render));
     // stats
@@ -3037,7 +3046,7 @@ VIEWS.krypto = v => catView(v, "krypto");
 /* ================= View: Verlauf ================= */
 VIEWS.verlauf = v => {
   const S = [...DB.snapshots].reverse();
-  if (!S.length) { v.innerHTML = `<div class="head"><h1>Verlauf</h1></div><div class="card empty">Noch keine Bewertungen. <a href="#bewertung">Erste Bewertung erfassen</a></div>`; return; }
+  if (!S.length) { v.innerHTML = `<div class="head"><h1>Verlauf</h1></div><div class="card empty" style="display:grid;justify-items:center;gap:8px"><div data-lottie="growth" style="width:140px;height:140px"></div>Noch keine Bewertungen. <a href="#bewertung">Erste Bewertung erfassen</a></div>`; playEmpties(v); return; }
   const expanded = new Set(store.get("hist-open", []));
   v.innerHTML = `<div class="head"><div><h1>Verlauf</h1><p>${S.length} Bewertungen von ${fmtDate(S.at(-1).date)} bis ${fmtDate(S[0].date)}. Klick auf eine Kategorie, um die einzelnen Konten zu sehen, oder auf das Stift-Symbol, um eine Bewertung zu ändern.</p></div>
     <button class="btn" type="button" id="h-csv">${I.download} Als CSV für Excel</button></div>
@@ -3162,7 +3171,7 @@ function xirr(flows) {
 }
 VIEWS.planung = v => {
   const L = latest(), P = DB.plan;
-  if (!L) { v.innerHTML = `<div class="head"><h1>Ziele & Planung</h1></div><div class="card empty">Erfasse zuerst eine Bewertung.</div>`; return; }
+  if (!L) { v.innerHTML = `<div class="head"><h1>Ziele & Planung</h1></div><div class="card empty" style="display:grid;justify-items:center;gap:8px"><div data-lottie="growth" style="width:140px;height:140px"></div>Erfasse zuerst eine Bewertung. <a class="link" href="#bewertung">Zur Bewertung</a></div>`; playEmpties(v); return; }
   const tot = total(L), ct = catTotals(L), G = growthStats();
   v.innerHTML = `<div class="head"><div><h1>Ziele & Planung</h1><p>Soll-Aufteilung, Meilensteine, Prognose und deine echte Rendite. Grundlage ist die Bewertung vom ${fmtDate(L.date)} mit ${eur0(tot)}. Alle Eingaben werden sofort gespeichert.</p></div></div>
     <section class="card"><div class="card-h"><h2>Soll- und Ist-Aufteilung</h2><span id="t-sum" class="chip"></span></div><div class="tbl-wrap" style="margin-top:8px"><table id="tgt"></table></div></section>
@@ -3468,7 +3477,7 @@ function syncSetupDialog() {
     if (p1.length < 8) { msg.innerHTML = '<div class="msg">Das Passwort braucht mindestens 8 Zeichen.</div>'; return; }
     if (p1 !== p2) { msg.innerHTML = '<div class="msg">Die Passwörter stimmen nicht überein.</div>'; return; }
     msg.innerHTML = '<div class="msg info">Wird eingerichtet …</div>';
-    try { await Sync.create(t, p1); dlg.close(); toast("Sync eingerichtet"); go(); setTimeout(syncPairDialog, 300); }
+    try { await Sync.create(t, p1); dlg.close(); celebrate("Sync eingerichtet", "Deine Daten sind verschlüsselt gesichert", false, "confetti", "sync"); go(); setTimeout(syncPairDialog, 2200); }
     catch (err) { msg.innerHTML = `<div class="msg">${esc(err.message || "Einrichten fehlgeschlagen.")}</div>`; }
   };
   $("#s-t", dlg).focus();
@@ -3539,7 +3548,7 @@ function syncJoinDialog() {
       const o = manual ? {g: $("#j-g", dlg).value.replace(/\s+/g, "").replace(/^.*gist\.github\.com\/(?:[^/]+\/)?/, ""), t: $("#j-t", dlg).value.replace(/\s+/g, "")} : Sync.parseCode($("#j-c", dlg).value);
       const {data, file} = await Sync.connect(o.t, o.g, $("#j-p", dlg).value);
       const localHas = DB.snapshots.length || DB.income.entries.length || DB.income.orders.length;
-      const takeRemote = () => { dlg.close(); Sync.apply(data, Sync.state.lastRemote); toast(`Verbunden · Daten von ${file.device || "anderem Gerät"} übernommen`); };
+      const takeRemote = () => { dlg.close(); Sync.apply(data, Sync.state.lastRemote); celebrate("Geräte verbunden", `Daten von ${file.device || "anderem Gerät"} übernommen`, false, "confetti", "sync"); };
       if (!localHas) return takeRemote();
       openDlg(`<div class="dlg-h"><h2>Welche Daten sollen gelten?</h2></div><div class="dlg-b"><p class="sub" style="margin:0">Auf diesem Gerät gibt es schon Daten. Normalerweise übernimmst du die Daten vom anderen Gerät.</p>
         <div class="struct"><div class="r"><span>Dieses Gerät</span><span class="num">${DB.snapshots.length} Bewertungen · ${DB.income.entries.length + DB.income.orders.length} Einkommenseinträge</span></div>
@@ -3820,11 +3829,12 @@ function holdingDialog(acc, h, done, preset) {
   const runSearch = debounce(async q => {
     const res = $("#h-res", dlg);
     if (q.length < 2) { res.hidden = true; return; }
-    res.hidden = false; res.innerHTML = '<div style="padding:10px" class="muted">Suche …</div>';
+    res.hidden = false; res.innerHTML = '<div style="padding:6px 10px;display:flex;align-items:center;gap:8px" class="muted"><span data-lottie="dots" style="width:44px;height:22px"></span>Suche …</div>'; playEmpties(res);
     try {
       const list = await MARKET.search(q, st.type);
       if (!form.isConnected) return;
-      res.innerHTML = list.length ? list.map((x, i) => `<button type="button" data-i="${i}"><span class="with-logo">${st.type === "crypto" ? logoBox(x.logo, x.name, "", true) : holdingLogo({type: "stock", symbol: x.symbol, name: x.name})}<span><b>${esc(x.name)}</b><br><small>${esc([x.ticker, x.type, x.exchange].filter(Boolean).join(" · "))}</small></span></span><small class="num">${esc(x.symbol)}</small></button>`).join("") : '<div style="padding:10px" class="muted">Keine Treffer.</div>';
+      res.innerHTML = list.length ? list.map((x, i) => `<button type="button" data-i="${i}"><span class="with-logo">${st.type === "crypto" ? logoBox(x.logo, x.name, "", true) : holdingLogo({type: "stock", symbol: x.symbol, name: x.name})}<span><b>${esc(x.name)}</b><br><small>${esc([x.ticker, x.type, x.exchange].filter(Boolean).join(" · "))}</small></span></span><small class="num">${esc(x.symbol)}</small></button>`).join("") : emptyAnim("search", "Keine Treffer. Versuch es mit ISIN, WKN oder Kürzel.", 90);
+      playEmpties(res);
       $$("button", res).forEach(b => b.onclick = () => {
         const x = list[+b.dataset.i]; $("#h-sym", dlg).value = x.symbol; st.name = x.name; st.logo = x.logo || ""; st.src = x.src || ""; st.ov = x.ov || null; st.ticker = x.ticker || ""; st.isin = x.isin || (isIsin(q.trim()) ? q.trim() : "");
         res.hidden = true; $("#h-qty", dlg).focus(); check();
@@ -4033,7 +4043,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v25";
+const APP_VERSION = "tracky-v27";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
