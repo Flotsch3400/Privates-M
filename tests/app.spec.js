@@ -45,3 +45,18 @@ test("neuer Stichtag wird gespeichert", async ({page}) => {
   await expect(page.locator(".hero-total")).toContainText("78.490");
   expect(errors).toEqual([]);
 });
+
+test("Plus-Knopf am iPhone: Schnellaktionen", async ({page}, info) => {
+  test.skip(info.project.name !== "iphone", "nur am Handy sichtbar");
+  const errors = await openWithDemo(page);
+  await page.click("#fab");
+  await expect(page.locator("dialog h2")).toHaveText("Schnell erfassen");
+  await page.click('[data-qa="gehalt"]');
+  await expect(page.locator("#e-emp")).toContainText("Demo GmbH");
+  await page.keyboard.press("Escape");
+  await page.click("#fab");
+  await page.click('[data-qa="bewertung"]');
+  await expect(page).toHaveURL(/#bewertung/);
+  await expect(page.locator("#fab")).toBeHidden();
+  expect(errors).toEqual([]);
+});

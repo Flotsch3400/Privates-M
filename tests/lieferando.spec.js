@@ -88,3 +88,32 @@ test("Restaurant-Logos: Ketten automatisch, eigenes Bild und Webseite", async ({
   await expect(page.locator("#lf-orders")).toContainText("Testnudeln");
   expect(errors).toEqual([]);
 });
+
+test("Wischgeste: Bestellung nach links wischen entfernt sie, Rückgängig holt sie zurück", async ({page, context}, info) => {
+  test.skip(info.project.name !== "iphone", "Touch nur im iPhone-Profil");
+  const errors = await openWithDemo(page);
+  await page.evaluate(() => { DB.income.orders.push({id: "sw1", date: todayISO(), restaurant: "Wischpizza", own: 10, serviceRate: .025, serviceCap: .89, discount: .1, participants: []}); save(true); });
+  await page.goto("./#lieferando");
+  const row = page.locator('#lf-orders [data-o="sw1"]');
+  await row.scrollIntoViewIfNeeded();
+  const b = await row.boundingBox(), y = b.y + b.height / 2, x = b.x + b.width - 30;
+  const cdp = await context.newCDPSession(page);
+  const touch = (type, px) => cdp.send("Input.dispatchTouchEvent", {type, touchPoints: type === "touchEnd" ? [] : [{x: px, y}]});
+  // a short swipe springs back
+  await touch("touchStart", x); await touch("touchMove", x - 40); await touch("touchEnd");
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => DB.income.orders.some(o => o.id === "sw1"))).toBe(true);
+  // a long swipe removes it
+  await touch("touchStart", x); for (const d of [20, 60, 110, 160]) await touch("touchMove", x - d); await touch("touchEnd");
+  await expect(page.locator(".toast")).toContainText("Wischpizza");
+  expect(await page.evaluate(() => DB.income.orders.some(o => o.id === "sw1"))).toBe(false);
+  await page.click(".toast-undo");
+  await expect(page.locator('#lf-orders [data-o="sw1"]')).toBeVisible();
+  // pull to refresh on the overview
+  await page.goto("./#uebersicht"); await page.waitForTimeout(200);
+  const pull = (type, py) => cdp.send("Input.dispatchTouchEvent", {type, touchPoints: type === "touchEnd" ? [] : [{x: 200, y: py}]});
+  await pull("touchStart", 300); for (const d of [30, 70, 110, 130]) await pull("touchMove", 300 + d);
+  await expect(page.locator(".ptr")).toHaveClass(/armed/);
+  await pull("touchEnd");
+  expect(errors).toEqual([]);
+});

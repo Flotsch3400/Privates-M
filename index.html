@@ -227,6 +227,30 @@ body.privacy .priv-hero,body.privacy [data-priv][aria-pressed="true"]{background
 #st-live.click{cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .update-bar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;border-radius:14px;background:var(--ink);color:var(--bg);box-shadow:var(--shadow-lg, 0 10px 30px rgba(0,0,0,.25));font-size:14px;max-width:calc(100vw - 32px)}
 @media (max-width:760px){.update-bar{bottom:calc(76px + env(safe-area-inset-bottom,0px))}}
+.swipe{position:relative;background:var(--surface);touch-action:pan-y}
+.swipe::after{content:"Entfernen";position:absolute;left:100%;top:0;bottom:0;width:240px;display:flex;align-items:center;padding-left:18px;background:var(--neg);color:#fff;font-weight:650;font-size:14px;opacity:.75;transition:opacity .15s}
+.swipe.swipe-armed::after{opacity:1}
+.plat-sec,.acc-pos,#lf-orders{overflow:hidden}
+.ptr{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));z-index:70;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--surface);color:var(--ink-3);box-shadow:var(--shadow-lg, 0 6px 18px rgba(0,0,0,.18));opacity:0;transform:translate(-50%,0);pointer-events:none;transition:opacity .15s}
+.ptr.armed{color:var(--brand)}
+.ptr .ic{width:20px;height:20px}
+.ptr.spin .ic{animation:spin .8s linear infinite}
+.fab{display:none}
+@media (max-width:760px){
+  .fab{display:grid;place-items:center;position:fixed;right:16px;bottom:calc(82px + env(safe-area-inset-bottom,0px));z-index:40;width:56px;height:56px;border:0;border-radius:18px;background:var(--brand);color:var(--on-brand);box-shadow:0 8px 24px rgba(16,185,129,.35),0 2px 6px rgba(0,0,0,.15);cursor:pointer;transition:transform .15s,opacity .2s}
+  .fab .ic{width:26px;height:26px}
+  .fab:active{transform:scale(.92)}
+  .fab[hidden]{display:none}
+  body.locked .fab{display:none}
+}
+.quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.quick button{all:unset;box-sizing:border-box;display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface);cursor:pointer;transition:transform .12s,border-color .12s}
+.quick button:active{transform:scale(.97);background:var(--surface-2)}
+.quick button:hover{border-color:var(--brand)}
+.quick .qi{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-ink)}
+.quick .qi .ic{width:19px;height:19px}
+.quick b{font-size:14.5px}
+.quick small{color:var(--ink-3);font-size:12px;margin-top:-4px}
 .pos-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-top:1px solid var(--line)}
 .pos-row:first-child{border-top:0}
 .pos-row .nm{font-weight:550;display:flex;align-items:center;gap:10px;min-width:0}
@@ -630,6 +654,7 @@ dialog:focus{outline:none}
   <nav class="tabbar" id="tabbar" aria-label="Navigation"></nav>
 </div>
 <dialog id="dlg" tabindex="-1"></dialog>
+<button class="fab" id="fab" type="button" aria-label="Schnell erfassen" aria-haspopup="dialog"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
 <div id="lock" class="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lock-t">
   <div class="lock-box">
     <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true"><rect width="64" height="64" rx="15" fill="#121826"/><path d="M15 43.5 L26.5 30.5 L35 37.5 L49 21" fill="none" stroke="#34D399" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -771,16 +796,16 @@ I.menu = svg('<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" 
 // [route, label, icon, short label, group, shown in the phone tab bar]
 const NAV = [
   ["uebersicht", "Übersicht", I.house, "Übersicht", "Vermögen", true],
-  ["aktien", "Aktien & ETFs", I.trendingUp, "Aktien", "Vermögen", true],
-  ["krypto", "Krypto", I.bitcoin, "Krypto", "Vermögen", true],
+  ["konten", "Vermögen", I.wallet, "Vermögen", "Vermögen", true],
+  ["aktien", "Aktien & ETFs", I.trendingUp, "Aktien", "Vermögen", false],
+  ["krypto", "Krypto", I.bitcoin, "Krypto", "Vermögen", false],
   ["einkommen", "Einkommen", I.banknote, "Einkommen", "Vermögen", true],
   ["lieferando", "Lieferando", `<span class="lf-ic" aria-hidden="true">${I.utensils}<img src="https://www.google.com/s2/favicons?domain=lieferando.at&sz=64" alt="" referrerpolicy="no-referrer" onload="this.classList.add('ok')" onerror="this.remove()"></span>`, "Lieferando", "Vermögen", true],
   ["planung", "Ziele & Planung", I.target, "Ziele", "Vermögen", false],
   ["bewertung", "Neue Bewertung", I.plusCircle, "Bewerten", "Verwalten", false],
-  ["depot", "Depot & Kurse", I.chartCombined, "Depot", "Verwalten", false],
   ["verlauf", "Verlauf", I.history, "Verlauf", "Verwalten", false],
-  ["konten", "Konten", I.wallet, "Konten", "Verwalten", false],
   ["daten", "Daten & Einstellungen", I.database, "Daten", "Verwalten", false],
+  ["depot", "Depot & Kurse", I.chartCombined, "Depot", "Verwalten", false, true],
 ];
 
 /* ================= Data layer ================= */
@@ -1612,18 +1637,76 @@ async function celebrate(title, sub, big, fx = "confetti", main = "success") {
 let route = "uebersicht", editId = null, resizeFns = [], animateCharts = false;
 function renderNav() {
   let grp = "";
-  $("#nav").innerHTML = NAV.map(([k, label, icon, , g]) => (g !== grp ? `<div class="nav-group">${grp = g}</div>` : "") + `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("");
+  const NAVV = NAV.filter(n => !n[6]);
+  $("#nav").innerHTML = NAVV.map(([k, label, icon, , g]) => (g !== grp ? `<div class="nav-group">${grp = g}</div>` : "") + `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("");
   const inBar = NAV.filter(n => n[5]);
   $("#tabbar").innerHTML = inBar.map(([k, , icon, short]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${short}</span></a>`).join("") +
     `<a href="#" id="tab-more" ${inBar.some(n => n[0] === route) ? "" : 'aria-current="page"'}>${I.menu}<span>Mehr</span></a>`;
   $("#tab-more").onclick = e => {
     e.preventDefault();
     openDlg(`<div class="dlg-h"><h2>Menü</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
-      <div class="dlg-b nav" style="gap:2px">${NAV.map(([k, label, icon]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("")}</div>`);
+      <div class="dlg-b nav" style="gap:2px">${NAVV.map(([k, label, icon]) => `<a href="#${k}" ${route === k ? 'aria-current="page"' : ""}>${icon}<span>${label}</span></a>`).join("")}</div>`);
     $$(".dlg-b a", dlg).forEach(a => a.onclick = () => dlg.close());
   };
 }
 const VIEWS = {};
+/** Swipe a row to the left to remove it (touch). A slight swipe springs back; taps keep working. */
+function swipeRow(el, onRemove) {
+  if (!("ontouchstart" in window) || el.dataset.swipe) return;
+  el.dataset.swipe = 1; el.classList.add("swipe");
+  let x0 = null, y0 = 0, dx = 0, axis = null, moved = false;
+  el.addEventListener("touchstart", e => { const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; axis = null; moved = false; el.style.transition = "none"; }, {passive: true});
+  el.addEventListener("touchmove", e => {
+    if (x0 == null) return;
+    const t = e.touches[0], ddx = t.clientX - x0, ddy = t.clientY - y0;
+    if (!axis && (Math.abs(ddx) > 8 || Math.abs(ddy) > 8)) axis = Math.abs(ddx) > Math.abs(ddy) * 1.2 ? "x" : "y";
+    if (axis !== "x") return;
+    moved = true; dx = Math.min(0, ddx); el.style.transform = `translateX(${dx}px)`; el.classList.toggle("swipe-armed", dx < -90);
+  }, {passive: true});
+  el.addEventListener("touchend", () => {
+    if (x0 == null) return; x0 = null; el.style.transition = "transform .22s cubic-bezier(.2,.8,.2,1)";
+    if (axis === "x" && dx < -90) { el.style.transform = "translateX(-110%)"; setTimeout(onRemove, 180); }
+    else { el.style.transform = ""; el.classList.remove("swipe-armed"); }
+  });
+  el.addEventListener("click", e => { if (moved) { e.preventDefault(); e.stopImmediatePropagation(); moved = false; } }, true);
+}
+/** Pull down at the top of a page to reload prices. */
+(function pullToRefresh() {
+  if (!("ontouchstart" in window)) return;
+  const ind = document.createElement("div"); ind.className = "ptr"; ind.setAttribute("aria-hidden", "true");
+  ind.innerHTML = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>`;
+  document.addEventListener("DOMContentLoaded", () => document.body.append(ind));
+  let y0 = null, dy = 0;
+  const ok = () => ["uebersicht", "konten", "aktien", "krypto", "depot"].includes(route) && !dlg.open && window.scrollY <= 0 && !document.body.classList.contains("locked");
+  document.addEventListener("touchstart", e => { y0 = ok() ? e.touches[0].clientY : null; dy = 0; }, {passive: true});
+  document.addEventListener("touchmove", e => {
+    if (y0 == null) return; dy = e.touches[0].clientY - y0;
+    if (dy <= 0 || window.scrollY > 0) { ind.style.opacity = 0; return; }
+    const p = Math.min(1, dy / 90);
+    ind.style.opacity = p; ind.style.transform = `translate(-50%, ${Math.min(dy, 110) * .6}px) rotate(${p * 270}deg)`; ind.classList.toggle("armed", p >= 1);
+  }, {passive: true});
+  document.addEventListener("touchend", async () => {
+    if (y0 == null) return; y0 = null;
+    if (dy >= 90 && window.scrollY <= 0) { ind.classList.add("spin"); ind.style.opacity = 1; await refreshQuotes(false); ind.classList.remove("spin"); }
+    ind.style.opacity = 0; ind.style.transform = "translate(-50%, 0)"; ind.classList.remove("armed");
+  });
+})();
+/** Quick actions behind the floating + button (phone). */
+function quickDialog() {
+  const acts = [
+    ["bewertung", I.plusCircle, "Neue Bewertung", "Monatsabschluss", () => { dlg.close(); location.hash = "#bewertung"; }],
+    ["gehalt", I.briefcase, "Gehalt", DB.income.settings.employer || "Einkommen", () => entryDialog("gehalt", null, () => go(true))],
+    ["order", lfIcon(), "Lieferando", "Gruppenbestellung", () => orderDialog(null, () => go(true))],
+    ["position", I.trendingUp, "Position", "Aktie, Krypto, Gold …", () => holdingDialog(null, null, () => go(true))],
+    ["cashback", I.percent, "Cashback", "Einkommen", () => entryDialog("cashback", null, () => go(true))],
+    ["zinsen", I.landmark, "Zinsen", "Einkommen", () => entryDialog("zinsen", null, () => go(true))],
+    ["plattform", I.wallet, "Plattform", "Neue Plattform anlegen", () => accountDialog(null, a => { go(true); if (a) platformDialog(platKey(a), () => go(true), a.id); })],
+    ["import", I.paste, "Depot einfügen", "Bestandsliste", () => importDepotDialog(() => go(true))],
+  ];
+  openDlg(`<div class="dlg-h"><h2>Schnell erfassen</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+    <div class="dlg-b"><div class="quick">${acts.map(([k, ic, l, sub]) => `<button type="button" data-qa="${k}"><span class="qi">${ic}</span><b>${esc(l)}</b><small>${esc(sub)}</small></button>`).join("")}</div></div>`);
+  $$("[data-qa]", dlg).forEach(b => b.onclick = () => acts.find(x => x[0] === b.dataset.qa)[4]());
+}
 /** Long page introductions fold away behind a small ⓘ next to the title (remembered per page). */
 function collapseIntro(v) {
   const p = $(".head > div > p", v), h1 = p?.parentElement.querySelector("h1");
@@ -1639,6 +1722,7 @@ function go(keep) {
   route = NAV.some(n => n[0] === h) ? h : "uebersicht";
   if (route !== "bewertung") editId = null;
   document.body.classList.remove("v-guided");
+  $("#fab").hidden = h === "bewertung";
   if (dlg.open) dlg.close();
   renderNav(); onQuotes = () => {}; resizeFns = [];
   const v = $("#view"); v.innerHTML = "";
@@ -1676,7 +1760,7 @@ function searchItems() {
   add("Aktionen", "Dunkles Design", "Darstellung", I.moon, after(() => { theme = "dark"; store.set("theme", theme); applyTheme(); }), "dark mode");
   add("Aktionen", "Helles Design", "Darstellung", I.sun, after(() => { theme = "light"; store.set("theme", theme); applyTheme(); }), "light mode");
   // pages
-  NAV.forEach(([k, label, icon]) => add("Seiten", label, "Seite öffnen", icon, nav(k)));
+  NAV.filter(n => !n[6]).forEach(([k, label, icon]) => add("Seiten", label, "Seite öffnen", icon, nav(k)));
   // accounts and positions
   const L = latest();
   platforms().filter(p => p.accs.length > 1 || investPlatforms().includes(p)).forEach(p => add("Plattformen", p.name, `${p.accs.map(a => catLabel(a.cat)).join(", ")} · Positionen erfassen`, platLogo(p, "sm"), after(() => platformDialog(p.key)), "plattform positionen"));
@@ -2038,7 +2122,7 @@ VIEWS.bewertung = v => {
       <p>${editing ? `Stichtag ${fmtDateL(editing.date)}.` : base ? `Alle Werte sind mit dem Stand vom ${fmtDate(base.date)} vorausgefüllt. Konten mit Depot-Positionen werden mit aktuellen Kursen berechnet. Ändere nur, was sich bewegt hat.` : "Trage für jedes Konto den aktuellen Wert ein."}</p></div>
       <div class="actions">
         ${allHoldings().length ? `<button class="btn" type="button" id="v-q" data-refresh>${I.refresh} Kurse laden</button>` : ""}
-        <button class="btn" type="button" id="v-add">${I.plus} Konto hinzufügen</button>
+        <button class="btn" type="button" id="v-add">${I.plus} Plattform hinzufügen</button>
       </div>
     </div>
     <div class="card"><div class="card-b val-head">
@@ -2133,7 +2217,7 @@ VIEWS.bewertung = v => {
     $("#v-all").hidden = vmode === "guided"; document.body.classList.toggle("v-guided", vmode === "guided");
     if (vmode === "guided") { renderGuided(); bindRows(); return; }
     gs = groupList();
-    groups.innerHTML = gs.map(groupCard).join("") || '<div class="card empty">Noch keine Konten. Lege mit „Konto hinzufügen“ das erste an.</div>';
+    groups.innerHTML = gs.map(groupCard).join("") || '<div class="card empty">Noch nichts erfasst. Lege mit „Plattform hinzufügen“ die erste an.</div>';
     const allOpen = gs.every(g => !closed.has(g.key));
     $("#v-all").textContent = allOpen ? "Alle zuklappen" : "Alle aufklappen";
     $$(".gh", groups).forEach(h => {
@@ -2358,7 +2442,7 @@ function catView(v, key) {
       </div>
     </section>
     <section class="card" id="cv-pos-card"></section>
-    <section class="card"><div class="card-h"><h2>Konten</h2><a class="btn ghost sm" href="#konten">Alle Konten</a></div><div class="tbl-wrap" style="margin-top:8px"><table id="cv-accs"></table></div></section>`;
+    <section class="card"><div class="card-h"><h2>Konten</h2><a class="btn ghost sm" href="#konten">Zu Vermögen</a></div><div class="tbl-wrap" style="margin-top:8px"><table id="cv-accs"></table></div></section>`;
 
   // chart
   let range = store.get("cv-range", "all");
@@ -3035,7 +3119,9 @@ VIEWS.lieferando = v => {
       : emptyAnim("delivery", "Noch keine Bestellungen. Leg mit „Neue Bestellung“ los.");
     $("#lf-rest").onclick = () => restDialog(render);
     playEmpties($("#lf-orders")); playEmpties($("#lf-open"));
-    $$("#lf-orders [data-o]").forEach(r => r.onclick = e => { if (e.target.closest("[data-texts]")) return; orderDialog(orders.find(o => o.id === r.dataset.o), render); });
+    $$("#lf-orders [data-o]").forEach(r => { r.onclick = e => { if (e.target.closest("[data-texts]")) return; orderDialog(orders.find(o => o.id === r.dataset.o), render); };
+      swipeRow(r, () => { const o = orders.find(x => x.id === r.dataset.o); removeWithUndo(DB.income.orders, o, `Bestellung ${o.restaurant || ""} gelöscht`.replace("  ", " "), render); render(); });
+    });
     $$("[data-texts]").forEach(b => b.onclick = () => messagesDialog(orders.find(o => o.id === b.dataset.texts), render));
     // stats
     $$("#lf-period button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === lfPeriod));
@@ -3193,11 +3279,12 @@ function setAuto(a, on, done) {
   } else { a.manual = true; save(true); toast(`${a.name}: Wert pflegst du jetzt händisch`); done(); }
 }
 VIEWS.konten = v => {
-  v.innerHTML = `<div class="head"><div><h1>Konten</h1><p>Alle Konten nach Plattform oder Kategorie. <b>Automatisch</b> heißt: der Wert kommt aus den erfassten Positionen mit Live-Kurs. <b>Händisch</b> heißt: du trägst den Wert bei der Bewertung ein. Umstellen kannst du das mit dem Schalter.</p></div>
-    <div class="actions"><button class="btn" type="button" id="k-cat">Kategorien bearbeiten</button><button class="btn primary" type="button" id="k-add">${I.plus} Konto hinzufügen</button></div></div>
+  v.innerHTML = `<div class="head"><div><h1>Vermögen</h1><p>Alles an einem Ort: Plattformen (z. B. Trade Republic), darin Kategorien (Aktien, Krypto …) und darin Positionen. <b>Automatisch</b> heißt: der Wert kommt aus den Positionen mit Live-Kurs. <b>Händisch</b> heißt: du trägst einen Betrag bei der Bewertung ein. Umstellen kannst du das mit dem Schalter.</p></div>
+    <div class="actions"><button class="btn icon" type="button" id="k-q" data-refresh aria-label="Kurse aktualisieren" title="Kurse aktualisieren">${I.refresh}</button><button class="btn" type="button" id="k-imp">${I.paste} Depot einfügen</button><button class="btn primary" type="button" id="k-add">${I.plus} Plattform hinzufügen</button></div></div>
+    <section class="kpis" id="k-kpis"></section>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" id="k-mode"><button type="button" data-v="plat">Nach Plattform</button><button type="button" data-v="cat">Nach Kategorie</button></div>
       <div class="seg" id="k-filter"><button type="button" data-v="active">Aktiv</button><button type="button" data-v="all">Inkl. archiviert</button></div>
-      <button class="btn ghost sm" type="button" id="k-all"></button></div>
+      <button class="btn ghost sm" type="button" id="k-all"></button><button class="btn ghost sm" type="button" id="k-cat">Kategorien bearbeiten</button></div>
     <p class="k-legend"><span class="mode auto">${I.refresh} Automatisch</span> Wert aus Positionen mit Live-Kurs <span class="mode man">${I.pencil} Händisch</span> Wert trägst du bei der Bewertung ein</p>
     <div id="k-list" style="display:grid;gap:14px"></div>`;
   let filter = store.get("k-filter", "active"), mode = store.get("k-mode", "plat");
@@ -3218,7 +3305,18 @@ VIEWS.konten = v => {
       ${has ? `<div class="fold ${open ? "open" : ""}" data-fold="${k}"><div><div class="acc-pos">${a.holdings.map(h => { const x = hVal(h); return `<div class="plat-row" data-h="${h.id}" data-a="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${h.type === "cash" ? (cashTxt(h) || (h.neg ? "Schuld" : "Betrag")) : qtyTxt(x.qty) + unit(h)}</small></span></span><span class="num">${x.value != null ? eur(x.value) : "–"}${plLine(x)}</span></div>`; }).join("")}
         <button class="btn ghost sm" type="button" data-page="${a.id}" style="margin:4px 0 0 -8px">${I.plus} Position hinzufügen</button></div></div></div>` : ""}`;
   };
+  const kpis = () => {
+    const act = DB.accounts.filter(a => !a.archived), all = act.reduce((t, a) => t + accNow(a), 0);
+    const liveAcc = act.filter(isLive), liveV = liveAcc.reduce((t, a) => t + accNow(a), 0);
+    const rows = liveAcc.flatMap(a => a.holdings.map(hVal)), P_ = plSum(rows);
+    const day = rows.reduce((t, r) => t + (r.value != null && r.change != null ? r.value - r.value / (1 + r.change) : 0), 0);
+    $("#k-kpis").innerHTML = kpi("Gesamt aktuell", eur0(all), `<span class="muted">${platforms().length} Plattformen</span>`, I.wallet) +
+      kpi("Automatisch", eur0(liveV), `<span class="muted">${all ? fmtPs.format(liveV / all) : "–"} live bewertet${quotesAt ? " · " + quotesAt.toLocaleTimeString(LOCALE, {hour: "2-digit", minute: "2-digit"}) : ""}</span>`, I.refresh) +
+      kpi("Kursgewinn", P_.n ? sEur0(P_.pl) : "–", P_.n ? `<span class="${cls(P_.pl)}">${pct(P_.pct)}</span> <span class="muted">auf ${eur0(P_.cost)}</span>` : '<span class="muted">Einstand bei Positionen eintragen</span>', I.trendingUp) +
+      kpi("Heute", rows.some(r => r.change != null) ? sEur0(day) : "–", rows.some(r => r.change != null) ? `<span class="${cls(day)}">${pct(day / (liveV - day || 1))}</span> <span class="muted">Kursbewegung</span>` : '<span class="muted">nach dem Laden der Kurse</span>', I.chartColumn);
+  };
   const render = () => {
+    kpis();
     $$("#k-filter button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === filter));
     $$("#k-mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === mode));
     const byVal = (x, y) => accNow(y) - accNow(x);
@@ -3230,7 +3328,7 @@ VIEWS.konten = v => {
         const k = "p:" + p.key, open = isOpen(k), nAuto = p.accs.filter(isLive).length, nPos = p.accs.reduce((t, a) => t + a.holdings.length, 0);
         return `<div class="card plat-card ${open ? "open" : ""}" data-card="${k}">
           <button class="plat-head" type="button" data-tog="${k}" aria-expanded="${open}">${I.chev}${platLogo(p, "lg")}<span class="t"><b>${esc(p.name)}</b><small>${[...new Set(p.accs.map(a => catLabel(a.cat)))].join(" · ")}${nPos ? ` · ${nPos} Positionen` : ""} · ${nAuto === p.accs.length ? "automatisch" : nAuto ? `${nAuto} von ${p.accs.length} automatisch` : "händisch"}</small></span><span class="num sum">${eur(sum)}</span></button>
-          <div class="fold ${open ? "open" : ""}" data-fold="${k}"><div>${p.accs.slice().sort(byVal).map(a => row(a, true, p.name)).join("") + `<div class="plat-foot"><button class="btn sm" type="button" data-plat="${p.key}">${I.plus} Asset hinzufügen</button><button class="btn ghost sm" type="button" data-imp="${p.key}">${I.paste} Depot einfügen</button></div>`}</div></div></div>`;
+          <div class="fold ${open ? "open" : ""}" data-fold="${k}"><div>${p.accs.slice().sort(byVal).map(a => row(a, true, p.name)).join("") + `<div class="plat-foot"><button class="btn sm" type="button" data-plat="${p.key}">${I.plus} Position hinzufügen</button><button class="btn ghost sm" type="button" data-imp="${p.key}">${I.paste} Depot einfügen</button></div>`}</div></div></div>`;
       }).join("") || '<div class="card empty">Noch keine Konten.</div>';
     } else {
       const cs = DB.categories.map(c => ({c, list: DB.accounts.filter(a => a.cat === c.key && (filter === "all" || !a.archived))})).filter(x => x.list.length)
@@ -3252,12 +3350,16 @@ VIEWS.konten = v => {
     $$("#k-list [data-plat]").forEach(b => b.onclick = () => platformDialog(b.dataset.plat, render));
     $$("#k-list [data-imp]").forEach(b => b.onclick = () => { const p = platByKey(b.dataset.imp); importDepotDialog(render, (p.accs.find(a => a.cat === "wertpapiere" && !a.archived) || p.accs.find(a => a.cat === "edelmetalle"))?.id); });
     $$("#k-list [data-auto]").forEach(inp => inp.onchange = () => setAuto(accById(inp.dataset.auto), inp.checked, () => setTimeout(render, reduced() ? 0 : 220)));
-    $$("#k-list .plat-row[data-h]").forEach(r => { const f = () => { const a = accById(r.dataset.a); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.h), render); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+    $$("#k-list .plat-row[data-h]").forEach(r => { const f = () => { const a = accById(r.dataset.a); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.h), render); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); };
+      swipeRow(r, () => { const a = accById(r.dataset.a), h = a.holdings.find(x => x.id === r.dataset.h); removeWithUndo(a.holdings, h, `${h.name || h.symbol || "Position"} entfernt`, render); render(); });
+    });
   };
   $$("#k-filter button").forEach(b => b.onclick = () => { filter = b.dataset.v; store.set("k-filter", filter); render(); });
   $$("#k-mode button").forEach(b => b.onclick = () => { mode = b.dataset.v; store.set("k-mode", mode); render(); });
   $("#k-add").onclick = () => accountDialog(null, a => { render(); if (a) platformDialog(platKey(a), render, a.id); });
+  $("#k-q").onclick = () => refreshQuotes(false);
   $("#k-cat").onclick = () => categoryDialog(render);
+  $("#k-imp").onclick = () => importDepotDialog(render);
   render(); onQuotes = render;
 };
 
@@ -3730,17 +3832,17 @@ function accountDialog(acc, done) {
   const isNew = !acc;
   const a = acc ? {...acc} : {name: "", provider: "", cat: DB.categories[0]?.key, holdings: [], archived: false};
   const used = acc && DB.snapshots.some(s => s.values[acc.id] != null);
-  openDlg(`<form id="af"><div class="dlg-h"><h2>${isNew ? "Konto hinzufügen" : "Konto bearbeiten"}</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+  openDlg(`<form id="af"><div class="dlg-h"><h2>${isNew ? "Plattform hinzufügen" : "Bearbeiten"}</h2><button class="btn ghost sm" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <div class="row2"><div class="field"><label for="a-name">Name</label><input class="input" id="a-name" required value="${esc(a.name)}" placeholder="z. B. Flatex Depot"></div>
       <div class="field"><label for="a-prov">Anbieter</label><input class="input" id="a-prov" value="${esc(a.provider || "")}" placeholder="z. B. Flatex" list="prov-list"><datalist id="prov-list">${[...new Set(DB.accounts.map(x => x.provider).filter(Boolean))].sort().map(p => `<option value="${esc(p)}">`).join("")}</datalist></div></div>
       <div class="row2"><div class="field"><label for="a-cat">Kategorie</label><select class="input" id="a-cat">${catOptions(a.cat)}</select></div>
       <div class="field"><label for="a-dom">Webseite (für das Logo)</label><div class="with-logo"><span id="a-logo">${accLogo(a)}</span><input class="input" id="a-dom" value="${esc(a.domain || "")}" placeholder="${esc(guessDomain(a.provider || a.name) || "z. B. flatex.at")}" spellcheck="false" autocomplete="off"></div></div></div>
-      ${!isNew ? `<div class="msg info">${isLive(acc) ? `Dieses Konto wird aus ${acc.holdings.length} Position${acc.holdings.length > 1 ? "en" : ""} live bewertet. Positionen änderst du unter <a class="link" href="#depot">Depot & Kurse</a>.` : `Dieses Konto bewertest du von Hand. <button class="btn sm" type="button" id="a-live" style="margin-left:6px">${I.refresh} Live bewerten</button>`}</div>
+      ${!isNew ? `<div class="msg info">${isLive(acc) ? `Dieses Konto wird aus ${acc.holdings.length} Position${acc.holdings.length > 1 ? "en" : ""} live bewertet. Positionen änderst du unter <a class="link" href="#konten">Vermögen</a>.` : `Dieses Konto bewertest du von Hand. <button class="btn sm" type="button" id="a-live" style="margin-left:6px">${I.refresh} Live bewerten</button>`}</div>
         <label class="check"><input type="checkbox" id="a-arch" ${a.archived ? "checked" : ""}> Archiviert (Konto existiert nicht mehr, bleibt im Verlauf erhalten)</label>` : ""}
     </div>
     <div class="dlg-f">${!isNew && !used ? '<button class="btn danger" type="button" data-del>Löschen</button>' : ""}<div class="r"><button class="btn" type="button" data-x>Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div></form>`);
-  $$("a[href='#depot']", dlg).forEach(l => l.onclick = () => dlg.close());
+  $$("a[href='#konten']", dlg).forEach(l => l.onclick = () => dlg.close());
   $("#a-live", dlg)?.addEventListener("click", () => {
     const t = acc.coin?.wallet ? "wallet" : {krypto: "crypto", edelmetalle: "metal"}[acc.cat] || "stock";
     const preset = acc.coin?.wallet ? {type: "wallet", chain: acc.coin.wallet} : acc.coin ? {type: "crypto", symbol: acc.coin.id, name: acc.coin.name, src: acc.coin.src || "", autoQty: true} : {type: t, autoQty: true};
@@ -3777,15 +3879,15 @@ function platformDialog(key, done = () => go(true), focusId) {
   const secOpen = a => !!a.holdings.length && (secSt[a.id] ?? (a.id === focusId || a.holdings.length <= 6));
   openDlg(`<div class="dlg-h"><h2 class="inl" style="gap:10px;min-width:0">${platLogo(p)}<span style="overflow:hidden;text-overflow:ellipsis">${esc(title)}</span></h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b" style="display:grid;gap:14px">
-      <div class="split"><span class="muted">${accs.length} Bereich${accs.length === 1 ? "" : "e"} · ${accs.reduce((t, a) => t + a.holdings.length, 0)} Assets</span><b class="num" style="font-size:20px">${eur(tot)}</b></div>
-      <div><button class="btn sm" type="button" id="pl-addtog" aria-expanded="${!(accs.reduce((t, a) => t + a.holdings.length, 0))}" style="width:100%">${I.plus} Asset hinzufügen</button>
+      <div class="split"><span class="muted">${accs.length} Kategorie${accs.length === 1 ? "" : "n"} · ${accs.reduce((t, a) => t + a.holdings.length, 0)} Positionen</span><b class="num" style="font-size:20px">${eur(tot)}</b></div>
+      <div><button class="btn sm" type="button" id="pl-addtog" aria-expanded="${!(accs.reduce((t, a) => t + a.holdings.length, 0))}" style="width:100%">${I.plus} Position hinzufügen</button>
         <div class="fold ${accs.reduce((t, a) => t + a.holdings.length, 0) ? "" : "open"}" id="pl-addfold"><div><div class="plat-cats" style="margin-top:10px">${DB.categories.map(c => `<button class="plat-cat" type="button" data-pcat="${esc(c.key)}">${catChip(c.key, "sm")}<span>${esc(c.label)}</span></button>`).join("")}</div>
-        <p class="hint" style="margin:6px 0 2px">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jedes Asset landet im passenden Bereich, fehlende Bereiche legt Tracky an.</p></div></div></div>
+        <p class="hint" style="margin:6px 0 2px">Aktien, Krypto und Edelmetalle suchst du mit Live-Kurs; bei allen anderen trägst du einen Betrag ein. Jede Position landet in der passenden Kategorie, fehlende Kategorien legt Tracky an.</p></div></div></div>
       ${accs.map(a => `<div class="plat-sec" data-sec="${a.id}">
         <div class="plat-h"><button class="sec-tog" type="button" data-stog="${a.id}" aria-expanded="${secOpen(a)}" ${a.holdings.length ? "" : 'tabindex="-1" style="cursor:default"'}>${a.holdings.length ? I.chev : ""}${catChip(a.cat, "sm")}<b>${esc(catLabel(a.cat))}</b>${a.name !== title ? `<span class="muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name)}</span>` : ""}${a.archived ? '<span class="chip">archiviert</span>' : ""}${a.holdings.length ? `<span class="muted" style="font-weight:500;font-size:12.5px;white-space:nowrap">${a.holdings.length}</span>` : ""}</button>
-          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a)}">Live</button></span><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Konto bearbeiten">${I.pencil}</button>${a.archived ? "" : `<button class="btn ghost sm icon v-rm" type="button" data-pdel="${a.id}" style="margin:0" aria-label="${esc(catLabel(a.cat))} entfernen" title="Bereich entfernen">${I.trash}</button>`}</span></div>
+          <span class="inl" style="gap:6px"><span class="seg mini" role="group" aria-label="Wie erfassen?" style="margin:0"><button type="button" data-pm="${a.id}" data-m="amount" aria-pressed="${!isLive(a)}">Betrag</button><button type="button" data-pm="${a.id}" data-m="live" aria-pressed="${isLive(a)}">Live</button></span><b class="num">${eur(valOf(a))}</b><button class="btn ghost sm icon" type="button" data-pedit="${a.id}" aria-label="${esc(a.name)} bearbeiten" title="Bearbeiten">${I.pencil}</button>${a.archived ? "" : `<button class="btn ghost sm icon v-rm" type="button" data-pdel="${a.id}" style="margin:0" aria-label="${esc(catLabel(a.cat))} entfernen" title="Bereich entfernen">${I.trash}</button>`}</span></div>
         <div class="fold ${secOpen(a) ? "open" : ""}" data-sfold="${a.id}"><div>${a.holdings.map(h => `<div class="plat-row" data-ph="${h.id}" data-pa="${a.id}" role="button" tabindex="0"><span class="nm with-logo">${holdingLogo(h)}<span><b>${esc(h.name || h.symbol)}</b><small class="num">${sub(h)}</small></span></span><span class="num">${hVal(h).value != null ? eur(hVal(h).value) : "–"}</span></div>`).join("")}</div></div>
-        ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen unter Konten mit dem Schalter.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
+        ${a.manual && a.holdings.length ? `<p class="hint" style="margin:0 0 8px">Händisch gepflegt – diese Positionen zählen nicht. Umstellen mit „Betrag / Live“.</p>` : a.holdings.length ? "" : `<p class="hint" style="margin:0 0 8px">Wert bisher von Hand eingetragen. Sobald du Assets erfasst, berechnet Tracky den Wert daraus.</p>`}
         <button class="btn ghost sm" type="button" data-pcat="${esc(a.cat)}" style="margin:2px 0 6px -8px">${I.plus} ${esc(catLabel(a.cat))} hinzufügen</button>
       </div>`).join("")}
     </div>
@@ -3814,7 +3916,9 @@ function platformDialog(key, done = () => go(true), focusId) {
     if (type) holdingDialog(null, null, done, {type, platform: key, back});
     else cashDialog(null, null, done, {platform: key, cat, back});
   });
-  $$("[data-ph]", dlg).forEach(r => { const f = () => { const a = accById(r.dataset.pa); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.ph), done, {back}); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); }; });
+  $$("[data-ph]", dlg).forEach(r => { const f = () => { const a = accById(r.dataset.pa); holdingDialog(a, a.holdings.find(h => h.id === r.dataset.ph), done, {back}); }; r.onclick = f; r.onkeydown = e => { if (e.key === "Enter") f(); };
+    swipeRow(r, () => { const a = accById(r.dataset.pa), h = a.holdings.find(x => x.id === r.dataset.ph); removeWithUndo(a.holdings, h, `${h.name || h.symbol || "Position"} entfernt`, () => { done(); if (dlg.open) back(); }); done(); back(); });
+  });
   $$("[data-pedit]", dlg).forEach(b => b.onclick = () => { accountDialog(accById(b.dataset.pedit), () => { done(); }); dlg.onclose = () => { dlg.onclose = null; setTimeout(back, 30); }; });
   if (focusId && accs.length > 1) { const el = $(`[data-sec="${focusId}"]`, dlg); if (el) { el.classList.add("focus"); el.scrollIntoView({block: "nearest"}); } }
 }
@@ -3824,7 +3928,7 @@ function cashDialog(acc, h, done, preset = {}) {
   const isNew = !h, plat = preset.platform ? platByKey(preset.platform) : null;
   const cat = acc?.cat || preset.cat, neg = cat === "kredite";
   let chain = false;
-  openDlg(`<form id="cf"><div class="dlg-h"><h2>${isNew ? esc(catLabel(cat)) + (plat ? " · " + esc(plat.name) : "") : "Asset bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
+  openDlg(`<form id="cf"><div class="dlg-h"><h2>${isNew ? esc(catLabel(cat)) + (plat ? " · " + esc(plat.name) : "") : "Position bearbeiten"}</h2><button class="btn ghost sm icon" type="button" data-x aria-label="Schließen">${I.x}</button></div>
     <div class="dlg-b">
       <div class="field"><label for="c-n">Bezeichnung</label><input class="input" id="c-n" value="${esc(h?.name || "")}" placeholder="${esc(CASH_HINT[cat] || "z. B. Guthaben")}" autocomplete="off"></div>
       <div class="field"><label for="c-a">${neg ? "Offener Betrag" : "Betrag"}</label><div style="display:flex;gap:8px"><input class="input n" id="c-a" inputmode="decimal" value="${h ? fmtN.format(h.qty) : ""}" placeholder="0,00" autocomplete="off" style="flex:1"><select class="input" id="c-ccy" aria-label="Währung" style="width:96px">${CCYS.map(c => `<option ${(h?.ccy || "EUR") === c ? "selected" : ""}>${c}</option>`).join("")}</select></div><span class="hint">Fremdwährungen rechnet Tracky laufend in Euro um.</span></div>
@@ -3847,8 +3951,8 @@ function cashDialog(acc, h, done, preset = {}) {
       target.holdings.push({id: "h" + uid(), ...item});
     } else { delete h.neg; delete h.ccy; Object.assign(h, item); }
     save(true); done(); if (ccy !== "EUR") refreshQuotes(true);
-    if (chain) { toast(`${item.name} gespeichert – nächstes Asset`); cashDialog(plat ? null : acc, null, done, preset); }
-    else { dlg.close(); toast(isNew ? "Asset hinzugefügt" : "Asset gespeichert"); }
+    if (chain) { toast(`${item.name} gespeichert – nächste Position`); cashDialog(plat ? null : acc, null, done, preset); }
+    else { dlg.close(); toast(isNew ? "Position hinzugefügt" : "Position gespeichert"); }
   };
   (isNew ? $("#c-n", dlg) : $("#c-a", dlg)).focus();
 }
@@ -4195,6 +4299,7 @@ const Updater = {
 };
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Updater.check(); });
 if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) { const k = $("#kbd-hint"); if (k) k.textContent = "⌘ K"; }
+$("#fab").onclick = quickDialog;
 (async function boot() {
   PRIV = !!store.get("privacy", false);
   Lock.init();
