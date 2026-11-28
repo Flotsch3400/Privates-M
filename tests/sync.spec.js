@@ -44,3 +44,10 @@ test("zwei Geräte synchronisieren verschlüsselt", async ({browser, baseURL}, i
   expect(await A.evaluate(() => Sync.state.dirty)).toBe(false);
   expect(errors).toEqual([]);
 });
+
+test("Sync-Verschlüsselung kommt mit großen Datenmengen klar", async ({page}) => {
+  const errors = await openWithDemo(page);
+  const ok = await page.evaluate(() => { const u = new Uint8Array(3e6); for (let i = 0; i < u.length; i++) u[i] = (i * 7919) % 256; const back = unb64(b64(u.buffer)); return back.length === u.length && back.every((x, i) => x === u[i]); });
+  expect(ok).toBe(true);
+  expect(errors).toEqual([]);
+});

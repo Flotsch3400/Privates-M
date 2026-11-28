@@ -901,7 +901,8 @@ function setStoreStatus(err) {
    Every device keeps its own copy; changes are pushed a few seconds after saving and pulled on start,
    when the app comes back to the foreground and every two minutes. */
 let applyingRemote = false;
-const b64 = buf => btoa(String.fromCharCode(...new Uint8Array(buf)));
+/* Chunked: spreading a large array into fromCharCode overflows the call stack (Safari allows ~65k arguments). */
+const b64 = buf => { const u = new Uint8Array(buf); let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
 const unb64 = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
 const deviceName = () => { const u = navigator.userAgent; return /iPhone/.test(u) ? "iPhone" : /iPad/.test(u) ? "iPad" : /Android/.test(u) ? "Android" : /Mac/.test(u) ? "Mac" : /Windows/.test(u) ? "Windows-PC" : "Gerät"; };
 const Sync = {
@@ -4474,7 +4475,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v32";
+const APP_VERSION = "tracky-v33";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
