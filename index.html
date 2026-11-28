@@ -1845,6 +1845,7 @@ function go(keep) {
   const h = location.hash.replace("#", "");
   route = NAV.some(n => n[0] === h) ? h : "uebersicht";
   if (route !== "bewertung") editId = null;
+  if (typeof dirtyView !== "undefined") dirtyView = false;
   document.body.classList.remove("v-guided");
   $("#fab").hidden = h === "bewertung";
   if (dlg.open) dlg.close();
@@ -4475,7 +4476,7 @@ function applyTheme() {
 applyTheme();
 /* Updates: an installed iPhone app is usually resumed, not reloaded – so Tracky checks version.json on start
    and whenever it comes back to the foreground, and reloads itself when a newer version is online. */
-const APP_VERSION = "tracky-v33";
+const APP_VERSION = "tracky-v34";
 let swReg = null;
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
   window.addEventListener("load", () => navigator.serviceWorker.register("sw.js", {updateViaCache: "none"}).then(r => swReg = r).catch(() => {}));
@@ -4483,18 +4484,18 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
 const Updater = {
   checkedAt: 0, latest: null,
   async check(force = false) {
-    if (!force && Date.now() - this.checkedAt < 60000) return this.latest;
+    if (!force && Date.now() - this.checkedAt < 10000) return this.latest;
     this.checkedAt = Date.now();
-    try { const j = await getJSON("version.json?t=" + Date.now(), {cache: "no-store"}, 6000); this.latest = j.v || null; } catch { return null; }
+    try { const j = await getJSON("version.json?t=" + Date.now(), {cache: "no-store"}, 5000); this.latest = j.v || null; } catch { return null; }
     swReg?.update().catch(() => {});
     if (this.latest && this.latest !== APP_VERSION) this.offer();
     return this.latest;
   },
-  /** Reload right away when nothing is being edited, otherwise offer a button. */
+  /** Reload right away unless something typed would be lost; then offer a button (and reload on the next return to the app). */
   offer() {
-    const busy = dlg.open || route === "bewertung" || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
-    // only one automatic reload per version – if the page is still old afterwards (server cache), show the button instead
-    if (!busy && !this.shown && store.get("upd-tried") !== this.latest) { store.set("upd-tried", this.latest); this.reload(); return; }
+    // a few automatic attempts per version – each with a fresh URL so no server or browser cache can hand out the old page
+    const t = store.get("upd-tried", null), n = t?.v === this.latest ? t.n : 0;
+    if (!this.dirty && n < 3) { store.set("upd-tried", {v: this.latest, n: n + 1}); this.reload(); return; }
     if (this.shown) return; this.shown = true;
     const b = document.createElement("div");
     b.className = "update-bar"; b.setAttribute("role", "status");
@@ -4503,14 +4504,22 @@ const Updater = {
     document.body.append(b);
   },
   async reload(clear = false) {
+    if (saveTimer) save(true);   // never lose the last change
     try {
       if (clear && "caches" in window) { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); }
       await swReg?.update();
     } catch {}
-    location.reload();
+    location.replace(location.pathname + "?v=" + encodeURIComponent(this.latest || Date.now()) + location.hash);
   },
 };
-document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Updater.check(); });
+if (/[?&]v=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+// typed but not saved yet → never reload under the user's fingers
+var dirtyView = false, dirtyDlg = false;
+Object.defineProperty(Updater, "dirty", {get: () => dirtyView || dirtyDlg, configurable: true});
+document.addEventListener("input", e => { if (e.target.closest?.("#dlg")) dirtyDlg = true; else if (e.target.closest?.("#view")) dirtyView = true; }, true);
+dlg.addEventListener("close", () => { dirtyDlg = false; });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") Updater.check(true); });
+window.addEventListener("pageshow", e => { if (e.persisted) Updater.check(true); });
 if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) { const k = $("#kbd-hint"); if (k) k.textContent = "⌘ K"; }
 $("#fab").onclick = quickDialog;
 (async function boot() {
@@ -4518,7 +4527,7 @@ $("#fab").onclick = quickDialog;
   Lock.init();
   await loadData();
   go(); setLiveStatus();
-  setTimeout(() => Updater.check(true), 1500);
+  Updater.check(true);
   if (Sync.on()) { Sync.status("", "Sync wird geprüft …"); Sync.pull(); }
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); });
   setInterval(() => { if (document.visibilityState === "visible" && Sync.on()) Sync.pull(); }, 2 * 60 * 1000);

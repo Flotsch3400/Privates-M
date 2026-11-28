@@ -11,19 +11,31 @@ test("Versionsnummer ist in index.html, sw.js und version.json gleich", () => {
   expect([sw, vj]).toEqual([app, app]);
 });
 
-test("Neue Version online: lädt einmal automatisch neu, sonst Hinweis mit Knopf", async ({page, context}) => {
+test("Neue Version online: lädt beim Öffnen automatisch neu (mit frischer Adresse), bis zu 3 Versuche, dann Knopf", async ({page, context}) => {
   await offline(context);
-  await page.route("**/version.json*", r => r.fulfill({json: {v: "tracky-v999"}}));
   await openWithDemo(page);
-  // first check reloads automatically (nothing is being edited)
-  const nav = page.waitForEvent("framenavigated");
+  await page.route("**/version.json*", r => r.fulfill({json: {v: "tracky-v999"}}));
+  const urls = [];
+  page.on("request", r => { if (r.resourceType() === "document") urls.push(r.url()); });
   await page.evaluate(() => Updater.check(true));
-  await nav;
-  await page.waitForLoadState();
-  // page is still "old" (same APP_VERSION) → no second automatic reload, a button instead
-  await page.evaluate(() => Updater.check(true));
-  await expect(page.locator(".update-bar")).toContainText("Neue Tracky-Version");
-  // settings show the state
+  // the page here stays "old" (same APP_VERSION) → it tries a few times, then offers the button
+  await expect(page.locator(".update-bar")).toContainText("Neue Tracky-Version", {timeout: 20_000});
+  expect(urls.length).toBe(3);
+  expect(urls.every(u => u.includes("?v=tracky-v999"))).toBe(true);
+  expect(page.url()).not.toContain("?v=");          // address is cleaned up again
+  await expect(page.locator(".hero-total")).toBeVisible();  // data still there
   await page.goto("./#daten");
   await expect(page.locator("#ver-info")).toContainText("neu verfügbar: 999");
+});
+
+test("Beim Zurückkehren in die App wird geprüft – nur nicht, während getippt wird", async ({page, context}) => {
+  await offline(context);
+  await openWithDemo(page, "bewertung");
+  await page.fill('#v-note', "halb getippt");
+  await page.route("**/version.json*", r => r.fulfill({json: {v: "tracky-v999"}}));
+  let docs = 0; page.on("request", r => { if (r.resourceType() === "document") docs++; });
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect(page.locator(".update-bar")).toBeVisible();
+  expect(docs).toBe(0);
+  await expect(page.locator("#v-note")).toHaveValue("halb getippt");
 });
